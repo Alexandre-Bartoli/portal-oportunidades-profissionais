@@ -20,7 +20,10 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   u=urllib.parse.urlparse(self.path);p=urllib.parse.parse_qs(u.query)
   if u.path=='/api/collection-status':return self.response(json.dumps(collection_status(),ensure_ascii=False))
-  if u.path=='/api/health':return self.response(json.dumps({'status':'ok','version':'0.5-experimental'}))
+  if u.path=='/api/providers':
+   from provider_catalog import CATALOG
+   return self.response(json.dumps({'providers':CATALOG},ensure_ascii=False))
+  if u.path=='/api/health':return self.response(json.dumps({'status':'ok','version':'0.6-experimental'}))
   if u.path=='/api/portals':return self.response(json.dumps({'portals':portals_json()},ensure_ascii=False))
   if u.path=='/api/jobs':
    try:
@@ -48,6 +51,17 @@ def main():
   init();start_scheduler();print('Acesse http://127.0.0.1:8766');ThreadingHTTPServer(('127.0.0.1',8766),Handler).serve_forever()
  elif cmd=='collect-auto':
   print(json.dumps(collect_once(),ensure_ascii=False,indent=2))
+ elif cmd=='audit-duplicates':
+  from core import audit_legacy_duplicates
+  print(json.dumps({'legacy_duplicate_groups':audit_legacy_duplicates()},ensure_ascii=False,indent=2))
+ elif cmd=='discover-sources':
+  from discover_sources import from_database
+  from core import connect
+  cfg=json.loads((BASE/'sources.json').read_text(encoding='utf-8'))
+  init()
+  with connect() as db:
+   found=from_database(db,configured=cfg['sources'])
+  print(json.dumps({'candidates':found},ensure_ascii=False,indent=2))
  elif cmd=='import-br':
   if len(sys.argv)<3: raise SystemExit('Uso: python3 app.py import-br caminho.csv')
   print('Vagas importadas para revisão:',import_csv(sys.argv[2]))

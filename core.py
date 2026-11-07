@@ -10,6 +10,7 @@ import urllib.error
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from listing_identity import canonical_url
 
 BASE = Path(__file__).resolve().parent
 DB = BASE / 'data' / 'jobs.sqlite3'
@@ -46,7 +47,7 @@ def category(title, description='', employment_type=''):
   return 'internship'
  if code in ('vacancy_type_temporary','temporary','temporario','fixed term'):
   return 'temporary'
- if code in ('vacancy_type_effective','effective','clt','permanent','full-time','full time','pj'):
+ if code in ('vacancy_type_effective','effective','clt','permanent','full-time','full time','part-time','part time','pj','fixed-term permanent'):
   return 'employment'
  t=normalize_text(title)
  if WORDS.search(t):return 'internship'
@@ -74,6 +75,10 @@ def make_job(provider,source,raw):
   extid=str(raw.get('id') or raw.get('jobUrl') or '')
   address=raw.get('address') or {};postal=address.get('postalAddress') or {}
   country=postal.get('addressCountry');mode={'Remote':'remote','Hybrid':'hybrid','OnSite':'onsite'}.get(raw.get('workplaceType'),'unknown')
+ elif provider in ('smartrecruiters','breezy'):
+  title=raw.get('title','');description=clean(raw.get('description',''));url=raw.get('url','')
+  location=raw.get('location','');extid=str(raw.get('id',''));country=raw.get('country')
+  mode=raw.get('mode','unknown')
  elif provider=='gupy':
   title=raw.get('title','');description=clean(raw.get('description',''));url=raw.get('url','')
   location=raw.get('location','');extid=str(raw.get('id',''));country=raw.get('country')
@@ -82,7 +87,7 @@ def make_job(provider,source,raw):
  if not title or not url or not url.startswith('https://'): return None
  if not country and any(x in normalize_text(str(location)) for x in ('brasil','brazil','sao paulo','belo horizonte','campinas','rio de janeiro','curitiba','porto alegre','recife','fortaleza','brasilia')):country='BR'
  employment = str(raw.get('employmentType') or (raw.get('categories') or {}).get('commitment') or '')
- kind = raw.get('kind') if provider=='gupy' else category(title,description,employment)
+ kind = raw.get('kind') if provider in ('gupy','smartrecruiters','breezy') else category(title,description,employment)
  if kind=='other':return None
  review='review'
  fingerprint=hashlib.sha256((provider+'|'+source+'|'+extid+'|'+url).encode()).hexdigest()
@@ -115,23 +120,34 @@ def fetch_source(provider,slug):
   from gupy import fetch
   terms={'estagio':'internship','emprego':'employment','temporario':'temporary'}
   if slug not in terms:raise ValueError('Consulta Gupy não autorizada na configuração')
+  from providers_extra import ListingBatch
   raws=fetch({'estagio':'estágio','emprego':'','temporario':'temporário'}[slug],contract=terms[slug],get_json=get_json)
-  return [job for raw in raws if (job:=make_job(provider,slug,raw)) is not None]
+  return ListingBatch([job for raw in raws if (job:=make_job(provider,slug,raw)) is not None], complete=False)
+ if provider in ('smartrecruiters','breezy'):
+  from providers_extra import smartrecruiters, breezy
+  raws = smartrecruiters(slug) if provider == 'smartrecruiters' else breezy(slug)
+  from providers_extra import ListingBatch
+  return ListingBatch([job for raw in raws if (job := make_job(provider, slug, raw)) is not None],
+                      complete=getattr(raws, 'complete', True))
  if provider=='greenhouse':
   data=get_json('https://boards-api.greenhouse.io/v1/boards/'+encoded+'/jobs?content=true');items=data['jobs'] if isinstance(data,dict) else None
  elif provider=='lever':
-  items=[];offset=0
+  items=[];offset=0;complete=False
   while offset<2000:
    batch=get_json('https://api.lever.co/v0/postings/'+encoded+'?mode=json&skip='+str(offset)+'&limit=100')
    if not isinstance(batch,list):raise ValueError('Resposta inválida do Lever')
    items.extend(batch)
-   if len(batch)<100:break
+   if len(batch)<100:
+    complete=True
+    break
    offset+=100
  elif provider=='ashby':
   data=get_json('https://api.ashbyhq.com/posting-api/job-board/'+encoded);items=[j for j in data['jobs'] if j.get('isListed',True)] if isinstance(data,dict) and isinstance(data.get('jobs'),list) else None
  else: raise ValueError('Provedor não permitido')
  if not isinstance(items,list):raise ValueError('Resposta inválida da fonte')
- return [j for raw in items if (j:=make_job(provider,slug,raw)) is not None]
+ from providers_extra import ListingBatch
+ return ListingBatch([j for raw in items if (j:=make_job(provider,slug,raw)) is not None],
+                     complete=complete if provider=='lever' else True)
 
 @contextmanager
 def connect():
@@ -144,6 +160,7 @@ def connect():
   db.close()
 
 def init():
+ """Migração aditiva: preserva os IDs e registros existentes."""
  with connect() as db:
   db.execute('''CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, provider TEXT, source TEXT, external_id TEXT,
    title TEXT, description TEXT, url TEXT, location TEXT, country TEXT, mode TEXT, kind TEXT,
@@ -152,34 +169,107 @@ def init():
   if 'active' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN active INTEGER DEFAULT 1')
   if 'misses' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN misses INTEGER DEFAULT 0')
   if 'first_seen' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN first_seen TEXT')
+  if 'canonical_url' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN canonical_url TEXT')
   db.execute('UPDATE jobs SET first_seen=last_seen WHERE first_seen IS NULL')
+  db.execute('''CREATE TABLE IF NOT EXISTS job_aliases (
+    provider TEXT NOT NULL, source TEXT NOT NULL, external_id TEXT NOT NULL,
+    source_job_id TEXT NOT NULL, job_id TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1, misses INTEGER NOT NULL DEFAULT 0,
+    last_seen TEXT, PRIMARY KEY (provider, source, external_id),
+    FOREIGN KEY(job_id) REFERENCES jobs(id))''')
+  # Backfill uma única vez; a relação já coletada não perde seu identificador.
+  if db.execute('PRAGMA user_version').fetchone()[0] < 1:
+   for row in db.execute('SELECT id,provider,source,external_id,url,active,misses,last_seen,demo FROM jobs').fetchall():
+    jid, provider, source, extid, url, active, misses, seen, demo=row
+    db.execute('UPDATE jobs SET canonical_url=? WHERE id=?', (canonical_url(url) or '', jid))
+    if not demo and provider and source:
+     db.execute('''INSERT OR IGNORE INTO job_aliases
+       (provider,source,external_id,source_job_id,job_id,active,misses,last_seen)
+       VALUES (?,?,?,?,?,?,?,?)''',
+       (provider,source,str(extid or jid),jid,jid,active or 0,misses or 0,seen))
+   db.execute('PRAGMA user_version=1')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_title ON jobs(title)')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_source ON jobs(provider, source, active)')
+  db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_canonical ON jobs(canonical_url, demo)')
+  db.execute('CREATE INDEX IF NOT EXISTS ix_aliases_job ON job_aliases(job_id, active)')
+
 
 def save(items):
- init()
- with connect() as db:
-  for j in items:
-   db.execute('''INSERT INTO jobs (id,provider,source,external_id,title,description,url,location,country,mode,kind,review_status,areas,last_seen,demo,active,misses,first_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
-    title=excluded.title, description=excluded.description, location=excluded.location,
-    country=excluded.country, mode=excluded.mode, kind=excluded.kind,
-    review_status=excluded.review_status, areas=excluded.areas, last_seen=excluded.last_seen, active=1, misses=0''',
-    (j['id'],j['provider'],j['source'],j['external_id'],j['title'],j['description'],j['url'],j['location'],
-     j['country'],j['mode'],j['kind'],j['review_status'],json.dumps(j['areas'],ensure_ascii=False),j['last_seen'],j['demo'],1,0,j['last_seen']))
+ """Armazena uma vaga por URL canônica, mantendo proveniência por fonte.
 
-
-def mark_missing(provider, source, seen_ids, threshold=2):
- """Uma vaga fica inativa após ausências em consultas bem sucedidas consecutivas.
- Esta função NUNCA deve ser chamada após erro de rede ou resposta inválida.
+ Não troca IDs legados. URLs iguais de fontes diferentes compartilham um job_id,
+ mas permanecem registradas separadamente em job_aliases.
  """
  init()
  with connect() as db:
-  rows=db.execute('SELECT id FROM jobs WHERE provider=? AND source=? AND demo=0 AND active=1',(provider,source)).fetchall()
-  for (job_id,) in rows:
-   if job_id not in seen_ids:
-    db.execute('UPDATE jobs SET misses=misses+1 WHERE id=?',(job_id,))
-  db.execute('UPDATE jobs SET active=0 WHERE provider=? AND source=? AND demo=0 AND misses>=?',(provider,source,threshold))
-  return db.execute('SELECT COUNT(*) FROM jobs WHERE provider=? AND source=? AND active=0 AND demo=0',(provider,source)).fetchone()[0]
+  for j in items:
+   canonical = canonical_url(j['url']) or ''
+   demo = int(j.get('demo',0))
+   external_id = str(j.get('external_id') or j['id'])
+   match = None
+   if not demo:
+    match=db.execute('SELECT job_id FROM job_aliases WHERE provider=? AND source=? AND external_id=?',
+     (j['provider'],j['source'],external_id)).fetchone()
+    if not match and canonical:
+     match=db.execute('SELECT id FROM jobs WHERE canonical_url=? AND demo=0 ORDER BY first_seen, id LIMIT 1',
+      (canonical,)).fetchone()
+   job_id = match[0] if match else j['id']
+   db.execute('''INSERT INTO jobs
+    (id,provider,source,external_id,title,description,url,location,country,mode,kind,
+     review_status,areas,last_seen,demo,active,misses,first_seen,canonical_url)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+    title=excluded.title, description=excluded.description, url=excluded.url,
+    canonical_url=excluded.canonical_url, location=excluded.location,
+    country=excluded.country, mode=excluded.mode, kind=excluded.kind,
+    review_status=excluded.review_status, areas=excluded.areas,
+    last_seen=excluded.last_seen, active=1, misses=0''',
+    (job_id,j['provider'],j['source'],external_id,j['title'],j['description'],j['url'],j['location'],
+     j['country'],j['mode'],j['kind'],j['review_status'],json.dumps(j['areas'],ensure_ascii=False),
+     j['last_seen'],demo,1,0,j['last_seen'],canonical))
+   if not demo:
+    db.execute('''INSERT INTO job_aliases
+      (provider,source,external_id,source_job_id,job_id,active,misses,last_seen)
+      VALUES (?,?,?,?,?,1,0,?) ON CONFLICT(provider,source,external_id) DO UPDATE SET
+      source_job_id=excluded.source_job_id, active=1, misses=0,
+      last_seen=excluded.last_seen''',
+      (j['provider'],j['source'],external_id,j['id'],job_id,j['last_seen']))
+
+
+def mark_missing(provider, source, seen_ids, threshold=2):
+ """Desativa apenas a proveniência ausente após consultas válidas.
+
+ Uma vaga compartilhada permanece ativa se qualquer outra origem estiver ativa.
+ NÃO chamar esta função após erros de rede ou respostas incompletas.
+ """
+ init()
+ with connect() as db:
+  rows=db.execute('SELECT external_id,source_job_id,job_id FROM job_aliases '
+                  'WHERE provider=? AND source=? AND active=1',(provider,source)).fetchall()
+  affected={row[2] for row in rows}
+  for extid, source_job_id, job_id in rows:
+   if source_job_id not in seen_ids:
+    db.execute('UPDATE job_aliases SET misses=misses+1 WHERE provider=? AND source=? AND external_id=?',
+     (provider,source,extid))
+  db.execute('UPDATE job_aliases SET active=0 WHERE provider=? AND source=? AND misses>=?',
+    (provider,source,threshold))
+  for job_id in affected:
+   db.execute('''UPDATE jobs SET active=CASE WHEN EXISTS(
+     SELECT 1 FROM job_aliases a WHERE a.job_id=jobs.id AND a.active=1)
+     THEN 1 ELSE 0 END WHERE id=? AND demo=0''', (job_id,))
+  return db.execute('''SELECT COUNT(DISTINCT j.id) FROM jobs j
+     JOIN job_aliases a ON a.job_id=j.id WHERE a.provider=? AND a.source=?
+     AND j.active=0 AND j.demo=0''', (provider,source)).fetchone()[0]
+
+def audit_legacy_duplicates():
+ """Aponta duplicidades preexistentes sem apagar dados ou combinar IDs."""
+ init()
+ with connect() as db:
+  keys=db.execute('''SELECT canonical_url FROM jobs
+   WHERE demo=0 AND canonical_url IS NOT NULL AND canonical_url<>''
+   GROUP BY canonical_url HAVING COUNT(*)>1''').fetchall()
+  return [{'url':url,'job_ids':[x[0] for x in db.execute(
+   'SELECT id FROM jobs WHERE canonical_url=? ORDER BY first_seen,id',(url,)).fetchall()]}
+   for (url,) in keys]
 
 def stats():
  init()

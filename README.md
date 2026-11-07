@@ -2,11 +2,11 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão 0.4).** A implementação atual pesquisa apenas **estágios** e possui conectores para quadros públicos de recrutamento Greenhouse, Lever e Ashby. As fontes ativas de exemplo não foram validadas com coleta real neste ambiente. As funções de emprego, temporários, UF, cidade e raio geográfico pertencem ao **planejamento**, ainda não ao código.
+> **Estado atual: prova de conceito (versão experimental 0.6).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real ainda não foi validada neste ambiente. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
 
 ## O que já funciona no código
 
-* Consulta a quadros de vagas Greenhouse, Lever e Ashby com identificadores de organizações configurados em `sources.json`.
+* Consulta a quadros de vagas Greenhouse, Lever e Ashby com identificadores de organizações configurados em `sources.json`. Conectores adicionais experimentais permanecem desabilitados até validação.
 * Tarefa de atualização periódica enquanto o servidor estiver executando (padrão de 6 horas).
 * Identificação heurística de possíveis estágios e agrupamento aproximado por área de conhecimento.
 * Armazenamento local SQLite e pesquisa textual por título, descrição e área.
@@ -17,7 +17,7 @@ Projeto experimental de pesquisa automática de oportunidades profissionais no B
 * Vagas coletadas deixam de ser exibidas após duas consultas bem sucedidas consecutivas em que desapareceram da fonte; falhas de rede não ocasionam desativação.
 * A API `/api/collection-status` informa a quantidade de fontes consultadas com sucesso e erro, vagas capturadas e registros ativos.
 
-**Não implementado:** coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; sincronização de vagas removidas; verificação de fraude; autenticação; controle de curadoria; busca geográfica por raio; modalidades emprego e temporário; condições de produção e escalabilidade.
+**Não implementado:** coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação; controle de curadoria; busca geográfica por raio; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
 
 ## Requisitos
 
@@ -49,8 +49,9 @@ Para testar sem internet com quatro **anúncios fictícios**, execute `python3 a
 
 * `/` : interface HTML.
 * `/api/health` : status HTTP.
-* `/api/jobs?q=...&country=BR&limit=30` : vagas classificadas como estágio.
-* `/api/collection-status` : resultado da última execução.
+* `/api/jobs?q=...&country=BR&kind=internship&limit=30` : pesquisa por categoria, incluindo `employment`, `temporary` e `all`.
+* `/api/collection-status` : resultado da última execução, incluindo fontes parciais.
+* `/api/providers` : catálogo técnico dos conectores.
 * `/api/portals` : catálogo de referência de portais brasileiros; **não** significa integração ativa.
 
 ## Estrutura
@@ -114,16 +115,46 @@ não foi copiado código das ferramentas de linha de comando.
 
 ## Auditoria de conectores e identidade dos anúncios (atualização incremental)
 
-A coleta agora valida a configuração antes de iniciar e diferencia três resultados:
-`ok` (resposta válida com vagas), `empty` (resposta válida sem vagas) e `error`
-(falha). O endpoint `/api/collection-status` inclui `audit_summary` e estados
+A coleta agora valida a configuração antes de iniciar e diferencia resultados como:
+`ok` (resposta válida com vagas), `empty` (resposta válida sem vagas), `error`
+(falha) e `partial` (inventário incompleto, sem inativar registros ausentes). O endpoint `/api/collection-status` inclui `audit_summary` e estados
 por fonte. Falha de rede, 404 ou resposta inesperada não equivalem a zero vagas.
 
 `source_quality.py` contém validação e diagnósticos. `listing_identity.py` fornece
 IDs estáveis com provedor/quadro/ID nativo e deduplicação conservadora de URLs.
-A função de deduplicação ainda **não** modifica a persistência existente.
+A deduplicação inicialmente era somente um módulo auxiliar; a versão 0.6 a integra à persistência, preservando os IDs já gravados.
 A integração brasileira experimental continua desativada por padrão.
 
 A consulta pública permanece prioridade. Recursos personalizados de busca,
 currículos e candidaturas são planejamento futuro, com perfis privados isolados.
 Veja `docs/REFERENCIAS_ADAPTACOES.md` para créditos, licença e limitações.
+
+## Evolução experimental 0.6: catálogo, descoberta e deduplicação persistente
+
+* **Novos provedores:** `smartrecruiters` e `breezy` implementados em Python, ainda
+  sem habilitação em `sources.json` e **sem teste real de coleta**. Os conectores
+  aceitam somente identificadores seguros e respostas em formato esperado.
+* **Catálogo técnico:** `provider_catalog.py` e `/api/providers` mostram os seis
+  conectores implementados. Presença no catálogo não equivale a acesso autorizado.
+* **Descoberta passiva:** `discover_sources.py` extrai candidatos de endereços
+  de vagas já coletadas, reconhecendo URLs de ATS conhecidos. Após cada coleta,
+  `data/fontes_sugeridas.json` registra apenas *sugestões desativadas*. Nenhum
+  conector é incluído automaticamente em `sources.json`; é necessária validação.
+  O comando `python3 app.py discover-sources` mostra as sugestões sem rede.
+  A função `from_html()` pode estudar links de uma página HTML fornecida pelo
+  responsável, sem abrir links ou acessar a rede.
+* **Deduplicação persistente:** `core.save()` une novos anúncios pela URL canônica
+  HTTPS, preservando o ID original, e a tabela `job_aliases` armazena a origem
+  de cada anúncio. Uma fonte que encerra a vaga não a desativa enquanto outra
+  origem permanecer ativa. Títulos semelhantes nunca são prova de duplicidade.
+* **Migração aditiva:** o banco SQLite preexistente é atualizado sem excluir
+  registros nem alterar os IDs antigos. Grupos de duplicatas antigas **não são
+  fundidos automaticamente**; use `python3 app.py audit-duplicates` para auditar.
+* **Paginação incompleta:** um provedor que retorna somente parte do catálogo
+  não causa desativação de vagas ausentes, e aparece como `partial` na auditoria.
+
+**Limitações:** nenhum conector novo foi validado com anúncios reais. A descoberta
+é passiva e não vasculha a Web em busca de novas empresas. A automação geral
+continua dependendo do servidor local em execução. O software não possui os
+controles necessários para uma implantação pública. Candidaturas individualizadas
+são uma etapa futura. Consulte `docs/EVOLUCAO_06.md`.

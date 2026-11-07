@@ -4,10 +4,11 @@ Inspirado nas práticas de diagnósticos de provedores de Career Ops.
 Este módulo é uma implementação independente, sem dependências externas.
 """
 from collections import Counter
+import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy'})
+PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy'})
 CATEGORY = frozenset({'internship', 'employment', 'temporary'})
 
 
@@ -30,6 +31,8 @@ def validate_sources(config):
         if key in seen:
             raise ValueError(f'Fonte duplicada: {provider}/{slug}')
         seen.add(key)
+        if provider in {'smartrecruiters','breezy'} and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}', slug):
+            raise ValueError('Identificador do provedor inválido')
         if provider == 'gupy' and slug not in {'estagio', 'emprego', 'temporario'}:
             raise ValueError('Pesquisa Gupy não está entre as categorias permitidas')
     return {'total': len(config['sources']), 'enabled': sum(s['enabled'] for s in config['sources'])}
@@ -72,5 +75,5 @@ def audit_result(provider, slug, items=None, error=None):
 
 def audit_summary(results):
     counts = Counter(r['status'] for r in results)
-    return {'ok': counts['ok'], 'empty': counts['empty'], 'error': counts['error'],
+    return {'ok': counts['ok'], 'empty': counts['empty'], 'error': counts['error'], 'partial': counts['partial'],
             'jobs': sum((r.get('jobs') or 0) for r in results), 'sources_checked': len(results)}

@@ -4,8 +4,9 @@ import logging
 import os
 import threading
 from datetime import datetime, timezone
-from core import BASE, fetch_source, save, init, mark_missing, stats
+from core import BASE, fetch_source, save, init, mark_missing, stats, connect
 from source_quality import validate_sources, audit_result, audit_summary
+from discover_sources import from_database
 
 LOG = logging.getLogger('coleta')
 STATE = BASE / 'data' / 'ultima_coleta.json'
@@ -30,9 +31,14 @@ def collect_once():
                 raise ValueError('O conector não retornou uma lista de vagas')
             # Somente uma resposta válida permite marcar anúncios como ausentes.
             save(items)
-            inactive = mark_missing(provider, slug, {x['id'] for x in items})
+            # Nunca expirar vagas se o conector retornou apenas parte do catálogo.
+            complete = getattr(items, 'complete', True)
+            inactive = mark_missing(provider, slug, {x['id'] for x in items}) if complete else None
             audit = audit_result(provider, slug, items=items)
             audit['inactive_total'] = inactive
+            audit['complete'] = complete
+            if not complete:
+                audit['status'] = 'partial'
             successful += 1
             count += len(items)
             results.append(audit)
@@ -42,7 +48,17 @@ def collect_once():
             audit = audit_result(provider, slug, error=exc)
             audit['error'] = str(exc)[:250]
             results.append(audit)
-    state = {'finished_at': datetime.now(timezone.utc).isoformat(),
+    # Sugestões extraídas passivamente dos anúncios já armazenados.
+    # Nunca ativar automaticamente um provedor recém-descoberto.
+    with connect() as db:
+        candidates = from_database(db, configured=config['sources'])
+    candidates_path = BASE / 'data' / 'fontes_sugeridas.json'
+    candidates_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_candidates = candidates_path.with_suffix('.tmp')
+    temp_candidates.write_text(json.dumps({'candidates': candidates},
+        ensure_ascii=False, indent=2), encoding='utf-8')
+    temp_candidates.replace(candidates_path)
+    state = {'suggested_sources': len(candidates), 'finished_at': datetime.now(timezone.utc).isoformat(),
              'collected': count, 'successful_sources': successful,
              'failed_sources': failed, 'real_jobs_active': stats().get(1, 0),
              'audit_summary': audit_summary(results), 'sources': results}

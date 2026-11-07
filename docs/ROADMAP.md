@@ -59,3 +59,17 @@
 - [ ] Validar a coleta real Gupy e autorização de uso
 - [ ] Medir cobertura de empregos e temporárias em fontes habilitadas
 - [ ] Testar deduplicação entre portais e qualidade dos anúncios
+
+## Versão experimental 0.6: provedores e identidade
+
+- [x] Registro de provedores SmartRecruiters e Breezy, desativados por padrão
+- [x] Funções de reconhecimento de endereços de ATS
+- [x] Descoberta passiva de sugestões de fontes após a coleta
+- [x] Deduplicação por URL canônica com origens independentes no SQLite
+- [x] Migração aditiva de banco e auditoria não destrutiva de duplicatas antigas
+- [x] Não encerrar vagas com base em respostas paginadas incompletas
+- [ ] Testar conectores com rede e validar termos de uso de cada fonte
+- [ ] Construir descoberta ativa controlada em páginas de carreiras autorizadas
+- [ ] Revisão assistida de duplicatas antigas com backup e histórico
+- [ ] Deduplicação entre URLs diferentes da mesma oportunidade com validação humana
+- [ ] Teste de carga, segurança e implantação multiusuário
