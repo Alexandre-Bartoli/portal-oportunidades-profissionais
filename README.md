@@ -111,3 +111,19 @@ resultado e não executa comandos nem segue instruções contidas em anúncios.
 Leia [a avaliação técnica e os créditos](docs/REFERENCIAS_JOB_SEARCH.md).
 As ideias foram inspiradas no Job Pindorama e no AI Job Search, ambos MIT;
 não foi copiado código das ferramentas de linha de comando.
+
+## Auditoria de conectores e identidade dos anúncios (atualização incremental)
+
+A coleta agora valida a configuração antes de iniciar e diferencia três resultados:
+`ok` (resposta válida com vagas), `empty` (resposta válida sem vagas) e `error`
+(falha). O endpoint `/api/collection-status` inclui `audit_summary` e estados
+por fonte. Falha de rede, 404 ou resposta inesperada não equivalem a zero vagas.
+
+`source_quality.py` contém validação e diagnósticos. `listing_identity.py` fornece
+IDs estáveis com provedor/quadro/ID nativo e deduplicação conservadora de URLs.
+A função de deduplicação ainda **não** modifica a persistência existente.
+A integração brasileira experimental continua desativada por padrão.
+
+A consulta pública permanece prioridade. Recursos personalizados de busca,
+currículos e candidaturas são planejamento futuro, com perfis privados isolados.
+Veja `docs/REFERENCIAS_ADAPTACOES.md` para créditos, licença e limitações.
