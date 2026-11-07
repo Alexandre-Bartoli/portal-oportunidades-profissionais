@@ -1,0 +1,30 @@
+name: Validacao externa das fontes
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/validar-fontes.yml'
+permissions:
+  contents: read
+jobs:
+  fontes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Auditar fontes habilitadas sem gravar vagas
+        run: python3 app.py verify-sources --min-sources 2
+        env:
+          PORTAL_HTTP_TIMEOUT: '8'
+          PORTAL_HTTP_ATTEMPTS: '2'
+      - name: Guardar diagnostico, mesmo quando falhar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validacao-fontes
+          path: data/validacao_fontes.json
+          if-no-files-found: warn
+          retention-days: 7

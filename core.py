@@ -1,4 +1,5 @@
 import hashlib
+import os
 from contextlib import contextmanager
 import html
 import json
@@ -96,14 +97,17 @@ def make_job(provider,source,raw):
  'mode':mode,'kind':kind,'review_status':review,'areas':areas_for(title,description),
  'last_seen':datetime.now(timezone.utc).isoformat(),'demo':0}
 
-def get_json(url, attempts=3, wait=time.sleep):
+def get_json(url, attempts=None, wait=time.sleep):
  """Consulta HTTPS com tentativas limitadas para falhas transitórias."""
+ if attempts is None:
+  attempts = max(1, min(int(os.getenv('PORTAL_HTTP_ATTEMPTS', '3')), 3))
+ timeout = max(3, min(int(os.getenv('PORTAL_HTTP_TIMEOUT', '20')), 20))
  if not url.startswith('https://'):
   raise ValueError('A consulta deve utilizar HTTPS')
- request=urllib.request.Request(url,headers={'User-Agent':'PortalOportunidades/0.4 (research prototype)','Accept':'application/json'})
+ request=urllib.request.Request(url,headers={'User-Agent':'PortalOportunidades/0.7 (research prototype)','Accept':'application/json'})
  for attempt in range(attempts):
   try:
-   with urllib.request.urlopen(request, timeout=20) as response:
+   with urllib.request.urlopen(request, timeout=timeout) as response:
     return json.load(response)
   except urllib.error.HTTPError as exc:
    if exc.code not in (429,500,502,503,504) or attempt==attempts-1:
@@ -122,15 +126,16 @@ def fetch_source(provider,slug):
   if slug not in terms:raise ValueError('Consulta Gupy não autorizada na configuração')
   from providers_extra import ListingBatch
   raws=fetch({'estagio':'estágio','emprego':'','temporario':'temporário'}[slug],contract=terms[slug],get_json=get_json)
-  return ListingBatch([job for raw in raws if (job:=make_job(provider,slug,raw)) is not None], complete=False)
+  return ListingBatch([job for raw in raws if (job:=make_job(provider,slug,raw)) is not None],
+                      complete=False, raw_count=getattr(raws, 'raw_count', None))
  if provider in ('smartrecruiters','breezy'):
   from providers_extra import smartrecruiters, breezy
   raws = smartrecruiters(slug) if provider == 'smartrecruiters' else breezy(slug)
   from providers_extra import ListingBatch
   return ListingBatch([job for raw in raws if (job := make_job(provider, slug, raw)) is not None],
-                      complete=getattr(raws, 'complete', True))
+                      complete=getattr(raws, 'complete', True), raw_count=getattr(raws, 'raw_count', None))
  if provider=='greenhouse':
-  data=get_json('https://boards-api.greenhouse.io/v1/boards/'+encoded+'/jobs?content=true');items=data['jobs'] if isinstance(data,dict) else None
+  data=get_json('https://boards-api.greenhouse.io/v1/boards/'+encoded+'/jobs?content=true');items=data.get('jobs') if isinstance(data,dict) else None
  elif provider=='lever':
   items=[];offset=0;complete=False
   while offset<2000:
@@ -142,12 +147,12 @@ def fetch_source(provider,slug):
     break
    offset+=100
  elif provider=='ashby':
-  data=get_json('https://api.ashbyhq.com/posting-api/job-board/'+encoded);items=[j for j in data['jobs'] if j.get('isListed',True)] if isinstance(data,dict) and isinstance(data.get('jobs'),list) else None
+  data=get_json('https://api.ashbyhq.com/posting-api/job-board/'+encoded);items=[j for j in data['jobs'] if isinstance(j,dict) and j.get('isListed',True)] if isinstance(data,dict) and isinstance(data.get('jobs'),list) else None
  else: raise ValueError('Provedor não permitido')
  if not isinstance(items,list):raise ValueError('Resposta inválida da fonte')
  from providers_extra import ListingBatch
- return ListingBatch([j for raw in items if (j:=make_job(provider,slug,raw)) is not None],
-                     complete=complete if provider=='lever' else True)
+ return ListingBatch([j for raw in items if isinstance(raw,dict) and (j:=make_job(provider,slug,raw)) is not None],
+                     complete=complete if provider=='lever' else True, raw_count=len(items))
 
 @contextmanager
 def connect():

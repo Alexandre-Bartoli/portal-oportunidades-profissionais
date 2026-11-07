@@ -73,3 +73,19 @@
 - [ ] Revisão assistida de duplicatas antigas com backup e histórico
 - [ ] Deduplicação entre URLs diferentes da mesma oportunidade com validação humana
 - [ ] Teste de carga, segurança e implantação multiusuário
+
+## Versão 0.7: validação demonstrável de fontes
+
+- [x] Auditar fontes habilitadas sem gravar nem desativar registros no banco
+- [x] Separar anúncios originais recebidos de vagas classificadas pelo portal
+- [x] Distinguir `empty`, `no_match`, `partial`, `invalid_data` e `error`
+- [x] Gerar relatório estruturado com resultados por fonte e critério mínimo
+- [x] Criar execução manual no GitHub Actions, sem credenciais ou dados pessoais
+- [x] Ampliar cobertura de testes com respostas simuladas
+- [ ] Confirmar pelo menos duas fontes independentes com anúncios reais
+- [ ] Verificar links e qualidade dos anúncios manualmente
+- [ ] Revisar as condições de consulta e utilização de cada fonte
+- [ ] Repetir testes em datas diferentes para demonstrar estabilidade
+
+A execução local em 07/11/2026 apresentou quatro erros de rede e **não
+comprova coleta real**. Veja [a documentação](VALIDACAO_07.md).

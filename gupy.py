@@ -77,12 +77,16 @@ def fetch(query, contract='internship', pages=1, get_json=None, **filters):
     if not isinstance(pages, int) or not 1 <= pages <= 5:
         raise ValueError('Limite de páginas inválido')
     result = []
+    raw_count = 0
     for page in range(pages):
         payload = get_json(build_url(query, contract=contract, offset=page*25, **filters))
         if not isinstance(payload, dict) or not isinstance(payload.get('data'), list):
             raise ValueError('Resposta inesperada da Gupy')
         batch = payload['data']
+        raw_count += len(batch)
         result.extend(item for row in batch if (item := normalize_item(row, contract)) is not None)
         if len(batch) < 25:
             break
-    return result
+    from providers_extra import ListingBatch
+    # A consulta usa filtros e pode cobrir apenas uma fração do catálogo.
+    return ListingBatch(result, complete=False, raw_count=raw_count)

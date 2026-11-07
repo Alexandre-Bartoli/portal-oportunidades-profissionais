@@ -67,13 +67,23 @@ def audit_result(provider, slug, items=None, error=None):
                 'checked_at': datetime.now(timezone.utc).isoformat()}
     if not isinstance(items, list):
         raise ValueError('Itens da coleta devem formar lista')
-    return {'source': f'{provider}/{slug}', 'status': 'empty' if not items else 'ok',
-            'reason': None, 'jobs': len(items),
+    raw_count = getattr(items, 'raw_count', None)
+    complete = getattr(items, 'complete', True)
+    if not complete:
+        state = 'partial'
+    elif raw_count is not None and raw_count > 0 and not items:
+        state = 'no_match'
+    else:
+        state = 'empty' if not items else 'ok'
+    return {'source': f'{provider}/{slug}', 'status': state,
+            'reason': None, 'jobs': len(items), 'raw_count': raw_count,
+            'complete': complete,
             'by_category': dict(Counter(j.get('kind', 'unknown') for j in items)),
             'checked_at': datetime.now(timezone.utc).isoformat()}
 
 
 def audit_summary(results):
     counts = Counter(r['status'] for r in results)
-    return {'ok': counts['ok'], 'empty': counts['empty'], 'error': counts['error'], 'partial': counts['partial'],
+    return {'ok': counts['ok'], 'empty': counts['empty'], 'no_match': counts['no_match'],
+            'error': counts['error'], 'partial': counts['partial'],
             'jobs': sum((r.get('jobs') or 0) for r in results), 'sources_checked': len(results)}

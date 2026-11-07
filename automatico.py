@@ -37,8 +37,6 @@ def collect_once():
             audit = audit_result(provider, slug, items=items)
             audit['inactive_total'] = inactive
             audit['complete'] = complete
-            if not complete:
-                audit['status'] = 'partial'
             successful += 1
             count += len(items)
             results.append(audit)

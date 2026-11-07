@@ -2,7 +2,7 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão experimental 0.6).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real ainda não foi validada neste ambiente. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
+> **Estado atual: prova de conceito (versão experimental 0.7).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real ainda não foi validada neste ambiente. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
 
 ## O que já funciona no código
 
@@ -17,7 +17,7 @@ Projeto experimental de pesquisa automática de oportunidades profissionais no B
 * Vagas coletadas deixam de ser exibidas após duas consultas bem sucedidas consecutivas em que desapareceram da fonte; falhas de rede não ocasionam desativação.
 * A API `/api/collection-status` informa a quantidade de fontes consultadas com sucesso e erro, vagas capturadas e registros ativos.
 
-**Não implementado:** coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação; controle de curadoria; busca geográfica por raio; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
+**Não implementado:** comprovação da coleta real neste ambiente; coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação; controle de curadoria; busca geográfica por raio; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
 
 ## Requisitos
 
@@ -158,3 +158,22 @@ Veja `docs/REFERENCIAS_ADAPTACOES.md` para créditos, licença e limitações.
 continua dependendo do servidor local em execução. O software não possui os
 controles necessários para uma implantação pública. Candidaturas individualizadas
 são uma etapa futura. Consulte `docs/EVOLUCAO_06.md`.
+
+## Versão experimental 0.7: auditoria externa independente
+
+O comando `python3 app.py verify-sources --min-sources 2` consulta as fontes
+habilitadas sem modificar ou expirar vagas no banco. Ele registra tanto a
+quantidade de anúncios retornados pelo provedor (`raw_count`) quanto a
+quantidade de vagas reconhecidas pelo portal (`jobs`). Distingue fontes vazias,
+fontes sem vagas compatíveis, consultas incompletas, respostas malformadas e
+erros de conexão.
+
+O JSON é salvo em `data/validacao_fontes.json` (arquivo local ignorado pelo Git).
+O comando retorna código 2 caso não encontre o mínimo de fontes completas com
+resultados válidos. Existe também um workflow manual do GitHub Actions para
+repetir essa verificação em um ambiente independente.
+
+A tentativa local de 7 de novembro de 2026 terminou com **quatro falhas de rede**
+e zero fontes confirmadas. Esse resultado não indica ausência de vagas.
+
+Consulte [o procedimento e os critérios de validação](docs/VALIDACAO_07.md).

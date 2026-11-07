@@ -12,9 +12,10 @@ import urllib.request
 
 class ListingBatch(list):
     """Lista com indicador de inventário completo ou parcial."""
-    def __init__(self, items=(), complete=True):
+    def __init__(self, items=(), complete=True, raw_count=None):
         super().__init__(items)
         self.complete = complete
+        self.raw_count = raw_count
 
 
 SLUG = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$')
@@ -61,6 +62,7 @@ def smartrecruiters(slug, get_json=read_public_json, max_pages=2):
     if not isinstance(max_pages, int) or not 1 <= max_pages <= 5:
         raise ValueError('Limite de páginas inválido')
     output = []
+    raw_count = 0
     for index in range(max_pages):
         url = (f'https://api.smartrecruiters.com/v1/companies/{slug}/postings'
                f'?limit=100&offset={100 * index}&status=PUBLIC')
@@ -68,6 +70,7 @@ def smartrecruiters(slug, get_json=read_public_json, max_pages=2):
         if not isinstance(response, dict) or not isinstance(response.get('content'), list):
             raise ValueError('Resposta SmartRecruiters inválida')
         rows = response['content']
+        raw_count += len(rows)
         for row in rows:
             if not isinstance(row, dict) or not row.get('id') or not row.get('name'):
                 continue
@@ -96,7 +99,7 @@ def smartrecruiters(slug, get_json=read_public_json, max_pages=2):
         if len(rows) < 100:
             break
     complete = len(rows) < 100
-    return ListingBatch(output, complete=complete)
+    return ListingBatch(output, complete=complete, raw_count=raw_count)
 
 
 def breezy(slug, get_json=read_public_json):
@@ -135,4 +138,4 @@ def breezy(slug, get_json=read_public_json):
             'title': str(row['name']), 'description': str(row.get('description') or ''),
             'url': url, 'location': str(place), 'country': None,
             'mode': 'remote' if location.get('is_remote') else 'unknown', 'kind': kind})
-    return result
+    return ListingBatch(result, complete=True, raw_count=len(response))

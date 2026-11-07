@@ -51,6 +51,17 @@ def main():
   init();start_scheduler();print('Acesse http://127.0.0.1:8766');ThreadingHTTPServer(('127.0.0.1',8766),Handler).serve_forever()
  elif cmd=='collect-auto':
   print(json.dumps(collect_once(),ensure_ascii=False,indent=2))
+ elif cmd=='verify-sources':
+  import argparse
+  from source_validation import verify_current_sources
+  parser=argparse.ArgumentParser(description='Auditar fontes habilitadas sem alterar vagas')
+  parser.add_argument('--min-sources',type=int,default=2,
+                      help='Número mínimo de fontes completas com oportunidades')
+  args=parser.parse_args(sys.argv[2:])
+  report=verify_current_sources(min_sources=args.min_sources)
+  print(json.dumps(report,ensure_ascii=False,indent=2))
+  if not report['criteria']['met']:
+   raise SystemExit(2)
  elif cmd=='audit-duplicates':
   from core import audit_legacy_duplicates
   print(json.dumps({'legacy_duplicate_groups':audit_legacy_duplicates()},ensure_ascii=False,indent=2))
