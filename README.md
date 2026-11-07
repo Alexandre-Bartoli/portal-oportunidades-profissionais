@@ -177,3 +177,9 @@ A tentativa local de 7 de novembro de 2026 terminou com **quatro falhas de rede*
 e zero fontes confirmadas. Esse resultado não indica ausência de vagas.
 
 Consulte [o procedimento e os critérios de validação](docs/VALIDACAO_07.md).
+
+## Evidência de coleta externa no GitHub Actions (07/11/2026)
+
+A auditoria executada pelo GitHub Actions conseguiu consultar quatro fontes e classificar **7 vagas de 3 fontes independentes** em um universo de 152 anúncios, enquanto a execução local encontrou falhas de rede. O critério técnico mínimo da versão 0.7 foi cumprido no ambiente do GitHub. A auditoria não grava vagas no SQLite. A revisão das condições de utilização dos dados e a confirmação individual dos links ainda estão pendentes.
+
+Veja [os resultados detalhados](docs/EVIDENCIA_VALIDACAO_07.md).

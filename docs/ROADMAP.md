@@ -82,10 +82,12 @@
 - [x] Gerar relatório estruturado com resultados por fonte e critério mínimo
 - [x] Criar execução manual no GitHub Actions, sem credenciais ou dados pessoais
 - [x] Ampliar cobertura de testes com respostas simuladas
-- [ ] Confirmar pelo menos duas fontes independentes com anúncios reais
+- [x] Confirmar pelo menos duas fontes independentes com anúncios reais via GitHub Actions em 07/11/2026
 - [ ] Verificar links e qualidade dos anúncios manualmente
 - [ ] Revisar as condições de consulta e utilização de cada fonte
 - [ ] Repetir testes em datas diferentes para demonstrar estabilidade
 
 A execução local em 07/11/2026 apresentou quatro erros de rede e **não
 comprova coleta real**. Veja [a documentação](VALIDACAO_07.md).
+
+O critério de fontes com anúncios reais foi alcançado apenas na execução do GitHub Actions. Essa aprovação técnica não substitui a revisão das condições de utilização nem a conferência manual dos links. [Evidência da execução](EVIDENCIA_VALIDACAO_07.md).

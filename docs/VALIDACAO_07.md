@@ -73,3 +73,9 @@ O resultado do GitHub Actions é um **teste adicional**, não uma autorização 
 * SmartRecruiters, documentação: https://developers.smartrecruiters.com/
 
 As documentações e os formatos disponíveis não substituem a análise das condições específicas de cada provedor.
+
+## Resultado da execução externa em ambiente GitHub
+
+A coleta técnica de 07/11/2026 **atingiu o critério mínimo**: 3 fontes com 7 vagas classificadas entre 152 anúncios recebidos. A quarta fonte respondeu normalmente, mas suas vagas não foram classificadas. A execução pode ser consultada em [GitHub Actions](https://github.com/Alexandre-Bartoli/portal-oportunidades-profissionais/actions/runs/42408717183). Este resultado não valida direitos de republicação nem cada link de candidatura. O ambiente local permaneceu sem acesso às APIs externas.
+
+Veja [o registro de evidência](EVIDENCIA_VALIDACAO_07.md).
