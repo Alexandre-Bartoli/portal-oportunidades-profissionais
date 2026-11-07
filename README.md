@@ -90,3 +90,24 @@ Execute os testes no seu ambiente. Testes locais simulam respostas de fontes ext
 A versão 0.4 melhora a **confiabilidade do processo de coleta**, mas **não confirma a existência de vagas reais coletadas** neste ambiente. As tentativas de consulta externa falharam por resolução de DNS. É indispensável executar `python3 app.py collect-auto` em um servidor com Internet, verificar os identificadores das empresas em `sources.json`, registrar pelo menos duas fontes válidas e conferir as permissões de utilização.
 
 **Cuidado com a publicação pública:** a API de status apresenta nomes de fontes e erros abreviados, sem credenciais. Os endpoints locais continuam limitados ao computador do desenvolvedor.
+
+## Atualização experimental 0.5: estudo Job Pindorama e AI Job Search
+
+Foi implementado um **adaptador experimental Gupy** (`gupy.py`) com classificação de
+estágio, emprego e temporárias e validação de URLs. Ele fica **desabilitado**
+por padrão em `sources.json` até verificar a permissão de acesso, a estabilidade
+da rota de consulta e a obtenção de vagas reais. Não é uma integração em produção.
+
+A API `/api/jobs` e a interface HTML agora aceitam `kind=internship`,
+`kind=employment`, `kind=temporary` ou `kind=all`. Os anúncios de outras
+plataformas continuam dependendo de classificação conservadora; a ausência de
+um tipo explícito não prova tratar-se de emprego.
+
+O módulo `signals.py` retorna alertas explicáveis sobre inconsistência da
+modalidade de trabalho, seleção interna e solicitação de pagamento. Alertas
+não constituem comprovação de fraude. A API inclui um campo `signals` em cada
+resultado e não executa comandos nem segue instruções contidas em anúncios.
+
+Leia [a avaliação técnica e os créditos](docs/REFERENCIAS_JOB_SEARCH.md).
+As ideias foram inspiradas no Job Pindorama e no AI Job Search, ambos MIT;
+não foi copiado código das ferramentas de linha de comando.

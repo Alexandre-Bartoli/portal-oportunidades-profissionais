@@ -39,6 +39,21 @@ def classify(title,description=''):
  if WORDS.search(t): return 'internship','review'
  return 'other','review'
 
+def category(title, description='', employment_type=''):
+ """Classificação conservadora em três tipos; desconhecido fica em revisão."""
+ code=normalize_text(employment_type).strip()
+ if code in ('vacancy_type_internship','internship','intern','estagio'):
+  return 'internship'
+ if code in ('vacancy_type_temporary','temporary','temporario','fixed term'):
+  return 'temporary'
+ if code in ('vacancy_type_effective','effective','clt','permanent','full-time','full time','pj'):
+  return 'employment'
+ t=normalize_text(title)
+ if WORDS.search(t):return 'internship'
+ if re.search(r'\b(temporario|temporaria|temporary|seasonal|sazonal)\b',t):return 'temporary'
+ if re.search(r'\b(trainee|aprendiz|voluntario|bolsa de pesquisa)\b',t):return 'other'
+ return 'other'
+
 def areas_for(title,description=''):
  text=normalize_text(title+' '+description)
  return sorted([area for area,keywords in AREAS.items() if any(normalize_text(k) in text for k in keywords)])
@@ -59,15 +74,17 @@ def make_job(provider,source,raw):
   extid=str(raw.get('id') or raw.get('jobUrl') or '')
   address=raw.get('address') or {};postal=address.get('postalAddress') or {}
   country=postal.get('addressCountry');mode={'Remote':'remote','Hybrid':'hybrid','OnSite':'onsite'}.get(raw.get('workplaceType'),'unknown')
+ elif provider=='gupy':
+  title=raw.get('title','');description=clean(raw.get('description',''));url=raw.get('url','')
+  location=raw.get('location','');extid=str(raw.get('id',''));country=raw.get('country')
+  mode=raw.get('mode','unknown')
  else: raise ValueError('Fonte desconhecida')
  if not title or not url or not url.startswith('https://'): return None
  if not country and any(x in normalize_text(str(location)) for x in ('brasil','brazil','sao paulo','belo horizonte','campinas','rio de janeiro','curitiba','porto alegre','recife','fortaleza','brasilia')):country='BR'
- kind,review=classify(title,description)
- if kind!='internship':
-  # Também considera o tipo de contratação explícito nas APIs.
-  employment = str(raw.get('employmentType') or (raw.get('categories') or {}).get('commitment') or '')
-  if normalize_text(employment) not in ('intern','internship','estagio'):return None
-  kind='internship'
+ employment = str(raw.get('employmentType') or (raw.get('categories') or {}).get('commitment') or '')
+ kind = raw.get('kind') if provider=='gupy' else category(title,description,employment)
+ if kind=='other':return None
+ review='review'
  fingerprint=hashlib.sha256((provider+'|'+source+'|'+extid+'|'+url).encode()).hexdigest()
  return {'id':fingerprint,'provider':provider,'source':source,'external_id':extid,'title':clean(title),
  'description':description[:12000],'url':url,'location':clean(location),'country':country,
@@ -94,6 +111,12 @@ def get_json(url, attempts=3, wait=time.sleep):
 
 def fetch_source(provider,slug):
  encoded=urllib.parse.quote(slug,safe='')
+ if provider=='gupy':
+  from gupy import fetch
+  terms={'estagio':'internship','emprego':'employment','temporario':'temporary'}
+  if slug not in terms:raise ValueError('Consulta Gupy não autorizada na configuração')
+  raws=fetch({'estagio':'estágio','emprego':'','temporario':'temporário'}[slug],contract=terms[slug],get_json=get_json)
+  return [job for raw in raws if (job:=make_job(provider,slug,raw)) is not None]
  if provider=='greenhouse':
   data=get_json('https://boards-api.greenhouse.io/v1/boards/'+encoded+'/jobs?content=true');items=data['jobs'] if isinstance(data,dict) else None
  elif provider=='lever':

@@ -46,3 +46,16 @@
 - [ ] Integração com sistemas acadêmicos
 
 **Não considerar itens pendentes como implementados.**
+
+## Evolução experimental 0.5
+
+- [x] Estudar Job Pindorama e AI Job Search original
+- [x] Criar adaptador Python experimental de consulta Gupy
+- [x] Preservar fonte desabilitada por padrão até revisão de acesso
+- [x] Distinguir estágio, emprego e temporárias por anúncio
+- [x] Acrescentar alertas sobre inconsistência da descrição
+- [x] Permitir filtro de categoria na interface e API
+- [x] Testar os componentes com respostas simuladas
+- [ ] Validar a coleta real Gupy e autorização de uso
+- [ ] Medir cobertura de empregos e temporárias em fontes habilitadas
+- [ ] Testar deduplicação entre portais e qualidade dos anúncios

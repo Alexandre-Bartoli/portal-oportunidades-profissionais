@@ -23,6 +23,27 @@
       "slug": "nubank",
       "enabled": true,
       "region": "BR"
+    },
+    {
+      "provider": "gupy",
+      "slug": "estagio",
+      "enabled": false,
+      "region": "BR",
+      "note": "Habilitar apenas após validação das condições de acesso e consulta real"
+    },
+    {
+      "provider": "gupy",
+      "slug": "emprego",
+      "enabled": false,
+      "region": "BR",
+      "note": "Habilitar apenas após validação das condições de acesso e consulta real"
+    },
+    {
+      "provider": "gupy",
+      "slug": "temporario",
+      "enabled": false,
+      "region": "BR",
+      "note": "Habilitar apenas após validação das condições de acesso e consulta real"
     }
   ]
 }
