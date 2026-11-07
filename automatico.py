@@ -5,7 +5,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from core import BASE, fetch_source, save, init
+from core import BASE, fetch_source, save, init, mark_missing, stats
 
 LOG = logging.getLogger('coleta')
 STATE = BASE / 'data' / 'ultima_coleta.json'
@@ -15,6 +15,8 @@ def collect_once():
     config = json.loads((BASE / 'sources.json').read_text(encoding='utf-8'))
     results = []
     count = 0
+    successful = 0
+    failed = 0
     for source in config['sources']:
         if not source.get('enabled'):
             continue
@@ -24,12 +26,15 @@ def collect_once():
             # País de abrangência da fonte não implica que todas as vagas sejam brasileiras.
             # Só se atribui Brasil quando constar nos dados da vaga.
             save(items)
+            inactive=mark_missing(source['provider'], source['slug'], {x['id'] for x in items})
+            successful += 1
             count += len(items)
-            results.append({'source':name,'status':'ok','jobs':len(items)})
+            results.append({'source':name,'status':'ok','jobs':len(items),'inactive_total':inactive})
         except Exception as exc:
+            failed += 1
             LOG.warning('Falha consultando %s: %s',name,exc)
             results.append({'source':name,'status':'error','error':str(exc)[:250]})
-    state={'finished_at':datetime.now(timezone.utc).isoformat(),'collected':count,'sources':results}
+    state={'finished_at':datetime.now(timezone.utc).isoformat(),'collected':count,'successful_sources':successful,'failed_sources':failed,'real_jobs_active':stats().get(1,0),'sources':results}
     STATE.parent.mkdir(parents=True,exist_ok=True)
     STATE.write_text(json.dumps(state,ensure_ascii=False,indent=2),encoding='utf-8')
     return state

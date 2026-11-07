@@ -19,7 +19,7 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   u=urllib.parse.urlparse(self.path);p=urllib.parse.parse_qs(u.query)
   if u.path=='/api/collection-status':return self.response(json.dumps(collection_status(),ensure_ascii=False))
-  if u.path=='/api/health':return self.response(json.dumps({'status':'ok'}))
+  if u.path=='/api/health':return self.response(json.dumps({'status':'ok','version':'0.4'}))
   if u.path=='/api/portals':return self.response(json.dumps({'portals':portals_json()},ensure_ascii=False))
   if u.path=='/api/jobs':
    try:

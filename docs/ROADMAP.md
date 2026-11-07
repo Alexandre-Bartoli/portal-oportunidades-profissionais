@@ -10,6 +10,16 @@
 - [x] Testes unitários sem rede
 - [ ] Coleta de vagas reais comprovada nas fontes configuradas
 
+## Versão 0.4: confiabilidade local
+
+- [x] Tratamento de erros transitórios com tentativas limitadas
+- [x] Verificação do formato das respostas de provedores
+- [x] Registro por fonte de consultas bem sucedidas e falhas
+- [x] Inativação após duas ausências consecutivas em consultas válidas
+- [x] Preservação de anúncios quando uma consulta falha
+- [x] Testes automáticos do ciclo de vida e de repetição das requisições
+- [ ] Validação externa de coletas reais, pendente de acesso DNS e verificação de fontes
+
 ## Próximo ciclo: coleta validada
 
 - [ ] Verificar permissões e documentações de cada fonte

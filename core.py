@@ -1,10 +1,13 @@
 import hashlib
+from contextlib import contextmanager
 import html
 import json
 import re
 import sqlite3
 import urllib.parse
 import urllib.request
+import urllib.error
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -71,53 +74,98 @@ def make_job(provider,source,raw):
  'mode':mode,'kind':kind,'review_status':review,'areas':areas_for(title,description),
  'last_seen':datetime.now(timezone.utc).isoformat(),'demo':0}
 
-def get_json(url):
- request=urllib.request.Request(url,headers={'User-Agent':'AcademicInternshipPOC/0.1 (research prototype)','Accept':'application/json'})
- with urllib.request.urlopen(request,timeout=20) as response:
-  return json.load(response)
+def get_json(url, attempts=3, wait=time.sleep):
+ """Consulta HTTPS com tentativas limitadas para falhas transitórias."""
+ if not url.startswith('https://'):
+  raise ValueError('A consulta deve utilizar HTTPS')
+ request=urllib.request.Request(url,headers={'User-Agent':'PortalOportunidades/0.4 (research prototype)','Accept':'application/json'})
+ for attempt in range(attempts):
+  try:
+   with urllib.request.urlopen(request, timeout=20) as response:
+    return json.load(response)
+  except urllib.error.HTTPError as exc:
+   if exc.code not in (429,500,502,503,504) or attempt==attempts-1:
+    raise
+  except (urllib.error.URLError, TimeoutError, ConnectionError):
+   if attempt==attempts-1:
+    raise
+  wait(min(2**attempt,4))
+ raise RuntimeError('Tentativas de consulta esgotadas')
 
 def fetch_source(provider,slug):
  encoded=urllib.parse.quote(slug,safe='')
  if provider=='greenhouse':
-  data=get_json('https://boards-api.greenhouse.io/v1/boards/'+encoded+'/jobs?content=true');items=data.get('jobs',[])
+  data=get_json('https://boards-api.greenhouse.io/v1/boards/'+encoded+'/jobs?content=true');items=data['jobs'] if isinstance(data,dict) else None
  elif provider=='lever':
   items=[];offset=0
   while offset<2000:
    batch=get_json('https://api.lever.co/v0/postings/'+encoded+'?mode=json&skip='+str(offset)+'&limit=100')
-   if not isinstance(batch,list):break
+   if not isinstance(batch,list):raise ValueError('Resposta inválida do Lever')
    items.extend(batch)
    if len(batch)<100:break
    offset+=100
  elif provider=='ashby':
-  data=get_json('https://api.ashbyhq.com/posting-api/job-board/'+encoded);items=[j for j in data.get('jobs',[]) if j.get('isListed',True)]
+  data=get_json('https://api.ashbyhq.com/posting-api/job-board/'+encoded);items=[j for j in data['jobs'] if j.get('isListed',True)] if isinstance(data,dict) and isinstance(data.get('jobs'),list) else None
  else: raise ValueError('Provedor não permitido')
+ if not isinstance(items,list):raise ValueError('Resposta inválida da fonte')
  return [j for raw in items if (j:=make_job(provider,slug,raw)) is not None]
 
+@contextmanager
 def connect():
  DB.parent.mkdir(parents=True,exist_ok=True)
- return sqlite3.connect(DB)
+ db=sqlite3.connect(DB)
+ try:
+  with db:
+   yield db
+ finally:
+  db.close()
 
 def init():
  with connect() as db:
   db.execute('''CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, provider TEXT, source TEXT, external_id TEXT,
    title TEXT, description TEXT, url TEXT, location TEXT, country TEXT, mode TEXT, kind TEXT,
    review_status TEXT, areas TEXT, last_seen TEXT, demo INTEGER DEFAULT 0)''')
+  columns={r[1] for r in db.execute('PRAGMA table_info(jobs)').fetchall()}
+  if 'active' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN active INTEGER DEFAULT 1')
+  if 'misses' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN misses INTEGER DEFAULT 0')
+  if 'first_seen' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN first_seen TEXT')
+  db.execute('UPDATE jobs SET first_seen=last_seen WHERE first_seen IS NULL')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_title ON jobs(title)')
+  db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_source ON jobs(provider, source, active)')
 
 def save(items):
  init()
  with connect() as db:
   for j in items:
-   db.execute('''INSERT INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+   db.execute('''INSERT INTO jobs (id,provider,source,external_id,title,description,url,location,country,mode,kind,review_status,areas,last_seen,demo,active,misses,first_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, description=excluded.description, location=excluded.location,
     country=excluded.country, mode=excluded.mode, kind=excluded.kind,
-    review_status=excluded.review_status, areas=excluded.areas, last_seen=excluded.last_seen''',
+    review_status=excluded.review_status, areas=excluded.areas, last_seen=excluded.last_seen, active=1, misses=0''',
     (j['id'],j['provider'],j['source'],j['external_id'],j['title'],j['description'],j['url'],j['location'],
-     j['country'],j['mode'],j['kind'],j['review_status'],json.dumps(j['areas'],ensure_ascii=False),j['last_seen'],j['demo']))
+     j['country'],j['mode'],j['kind'],j['review_status'],json.dumps(j['areas'],ensure_ascii=False),j['last_seen'],j['demo'],1,0,j['last_seen']))
+
+
+def mark_missing(provider, source, seen_ids, threshold=2):
+ """Uma vaga fica inativa após ausências em consultas bem sucedidas consecutivas.
+ Esta função NUNCA deve ser chamada após erro de rede ou resposta inválida.
+ """
+ init()
+ with connect() as db:
+  rows=db.execute('SELECT id FROM jobs WHERE provider=? AND source=? AND demo=0 AND active=1',(provider,source)).fetchall()
+  for (job_id,) in rows:
+   if job_id not in seen_ids:
+    db.execute('UPDATE jobs SET misses=misses+1 WHERE id=?',(job_id,))
+  db.execute('UPDATE jobs SET active=0 WHERE provider=? AND source=? AND demo=0 AND misses>=?',(provider,source,threshold))
+  return db.execute('SELECT COUNT(*) FROM jobs WHERE provider=? AND source=? AND active=0 AND demo=0',(provider,source)).fetchone()[0]
+
+def stats():
+ init()
+ with connect() as db:
+  return dict(db.execute('SELECT active,COUNT(*) FROM jobs WHERE demo=0 GROUP BY active').fetchall())
 
 def query(q='',country='',kind='internship',limit=30):
  init();limit=max(1,min(int(limit),100))
- statement='SELECT * FROM jobs WHERE 1=1';args=[]
+ statement='SELECT * FROM jobs WHERE active=1';args=[]
  if q:
   statement+=' AND (lower(title) LIKE ? OR lower(description) LIKE ? OR lower(areas) LIKE ?)'
   args.extend(['%'+q.lower()+'%']*3)

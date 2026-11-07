@@ -2,7 +2,7 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão 0.3).** A implementação atual pesquisa apenas **estágios** e possui conectores para quadros públicos de recrutamento Greenhouse, Lever e Ashby. As fontes ativas de exemplo não foram validadas com coleta real neste ambiente. As funções de emprego, temporários, UF, cidade e raio geográfico pertencem ao **planejamento**, ainda não ao código.
+> **Estado atual: prova de conceito (versão 0.4).** A implementação atual pesquisa apenas **estágios** e possui conectores para quadros públicos de recrutamento Greenhouse, Lever e Ashby. As fontes ativas de exemplo não foram validadas com coleta real neste ambiente. As funções de emprego, temporários, UF, cidade e raio geográfico pertencem ao **planejamento**, ainda não ao código.
 
 ## O que já funciona no código
 
@@ -13,6 +13,9 @@ Projeto experimental de pesquisa automática de oportunidades profissionais no B
 * Filtro de país pelo código informado nos anúncios.
 * API HTTP de leitura, interface HTML simples e diagnóstico da última coleta.
 * Testes automatizados sem necessidade de conexão externa.
+* Tentativas limitadas após falhas transitórias de rede, com registro de sucessos e erros por fonte.
+* Vagas coletadas deixam de ser exibidas após duas consultas bem sucedidas consecutivas em que desapareceram da fonte; falhas de rede não ocasionam desativação.
+* A API `/api/collection-status` informa a quantidade de fontes consultadas com sucesso e erro, vagas capturadas e registros ativos.
 
 **Não implementado:** coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; sincronização de vagas removidas; verificação de fraude; autenticação; controle de curadoria; busca geográfica por raio; modalidades emprego e temporário; condições de produção e escalabilidade.
 
@@ -81,3 +84,9 @@ Este servidor liga somente em `127.0.0.1`; **não publique diretamente na Intern
 ## Estado dos testes
 
 Execute os testes no seu ambiente. Testes locais simulam respostas de fontes externas e **não comprovam coleta real**.
+
+## Notas da versão 0.4
+
+A versão 0.4 melhora a **confiabilidade do processo de coleta**, mas **não confirma a existência de vagas reais coletadas** neste ambiente. As tentativas de consulta externa falharam por resolução de DNS. É indispensável executar `python3 app.py collect-auto` em um servidor com Internet, verificar os identificadores das empresas em `sources.json`, registrar pelo menos duas fontes válidas e conferir as permissões de utilização.
+
+**Cuidado com a publicação pública:** a API de status apresenta nomes de fontes e erros abreviados, sem credenciais. Os endpoints locais continuam limitados ao computador do desenvolvedor.
