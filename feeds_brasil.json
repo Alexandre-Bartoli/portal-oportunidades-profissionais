@@ -1,0 +1,31 @@
+{
+  "feeds": [
+    {
+      "portal": "ciee",
+      "enabled": false,
+      "url": "https://SEU_HOST_AUTORIZADO/vagas.csv",
+      "allowed_host": "SEU_HOST_AUTORIZADO",
+      "format": "csv",
+      "token_env": "CIEE_FEED_TOKEN"
+    },
+    {
+      "portal": "gupy",
+      "enabled": false,
+      "url": "https://SEU_HOST_AUTORIZADO/vagas.json",
+      "allowed_host": "SEU_HOST_AUTORIZADO",
+      "format": "json",
+      "items_key": "jobs",
+      "token_env": "GUPY_FEED_TOKEN",
+      "field_map": {
+        "id_externo": "id",
+        "titulo": "title",
+        "descricao": "description",
+        "url": "url",
+        "localidade": "location",
+        "pais": "country",
+        "modalidade": "mode",
+        "areas": "areas"
+      }
+    }
+  ]
+}

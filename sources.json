@@ -1,0 +1,28 @@
+{
+  "sources": [
+    {
+      "provider": "lever",
+      "slug": "zippi",
+      "enabled": true,
+      "region": "BR"
+    },
+    {
+      "provider": "ashby",
+      "slug": "enter-ai",
+      "enabled": true,
+      "region": "BR"
+    },
+    {
+      "provider": "ashby",
+      "slug": "tako",
+      "enabled": true,
+      "region": "BR"
+    },
+    {
+      "provider": "ashby",
+      "slug": "nubank",
+      "enabled": true,
+      "region": "BR"
+    }
+  ]
+}
