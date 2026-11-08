@@ -100,9 +100,11 @@ comprova coleta real**. Veja [a documentação](VALIDACAO_07.md).
 - [x] Impedir inclusão de anúncios de demonstração
 - [x] Servir resultados pela interface/API apenas em endereço local separado
 - [x] Criar testes de fluxo completo e workflow de auditoria no GitHub Actions
-- [ ] Confirmar persistência de vagas reais no runner externo
+- [x] Confirmar persistência de 7 vagas reais no runner externo em uma execução
 - [ ] Conferir amostra de links individuais e condições de utilização
 - [ ] Implantar homologação privada persistente com backups e proteção de acesso
 - [ ] Publicar portal para usuários finais após revisão técnica e jurídica
 
 Ver [procedimento de homologação](HOMOLOGACAO_08.md).
+
+Evidência externa da versão 0.8: [relatório de homologação](EVIDENCIA_HOMOLOGACAO_08.md).

@@ -205,3 +205,13 @@ um anúncio individual esteja aberto para candidatura ou que tenhamos autorizaç
 para redistribuí-lo publicamente.
 
 Leia [o procedimento de homologação e limites](docs/HOMOLOGACAO_08.md).
+
+
+## Evidência da homologação real (07/11/2026)
+
+O GitHub Actions concluiu a coleta em banco temporário: **152 anúncios recebidos,
+7 vagas classificadas e gravadas, 3 fontes com resultados**. Os **101 testes
+Python** também passaram. Isso comprova a etapa técnica de persistência em
+homologação, mas **não** constitui autorização de republicação, verificação
+manual dos links ou implantação pública. Consulte
+[os dados, limites e execuções](docs/EVIDENCIA_HOMOLOGACAO_08.md).
