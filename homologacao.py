@@ -7,6 +7,7 @@ interface stage-serve é somente de consulta e não inicia coletores.
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import threading
 import time
@@ -14,10 +15,11 @@ import time
 import core
 from providers_extra import ListingBatch
 from source_quality import audit_result, audit_summary, validate_sources
-from source_validation import _check_jobs, write_report
+from source_validation import _check_jobs
+from stage_storage import stage_paths, ensure_private, write_private_report
+from source_reviews import review_report
 
-STAGING_DB = core.BASE / 'data' / 'homologacao.sqlite3'
-STAGING_REPORT = core.BASE / 'data' / 'homologacao_status.json'
+STAGING_DB, STAGING_REPORT = stage_paths()
 MAIN_DB = core.BASE / 'data' / 'jobs.sqlite3'
 _LOCK = threading.RLock()
 
@@ -32,6 +34,7 @@ def staging_database(db_path=None):
     path = Path(db_path) if db_path is not None else STAGING_DB
     if path.resolve() in (MAIN_DB.resolve(), core.DB.resolve()):
         raise ValueError('O banco de homologação não pode ser o banco principal')
+    ensure_private(path.parent)
     with _LOCK:
         old_db = core.DB
         core.DB = path
@@ -122,7 +125,7 @@ def collect_staging(config, *, fetcher=None, db_path=None, report_path=None, min
             raise RuntimeError('O banco de homologação contém anúncios fictícios')
     report = {
         'schema_version': 1,
-        'phase': '0.8-homologacao',
+        'phase': '0.9-homologacao-persistente',
         'mode': 'simulated_no_external_network' if simulation else 'external_network',
         'checked_at': checked_at,
         'criteria': {
@@ -138,14 +141,14 @@ def collect_staging(config, *, fetcher=None, db_path=None, report_path=None, min
         'safety': {
             'isolated_db': True,
             'candidate_profiles_stored': False,
-            'source_usage_review_complete': all(
-                s.get('usage_review') == 'approved' for s in config['sources'] if s['enabled']
-            ),
+            'source_usage_review_complete': review_report(config)['status'] == 'all_enabled_reviewed',
+            'persistent_volume_configured': bool(os.getenv('PORTAL_STAGING_DIR')),
+            'backup_and_restore_automatically_run': False,
             'individual_apply_links_checked': False,
             'public_deployment_approved': False,
         },
     }
-    write_report(report, report_path or STAGING_REPORT)
+    write_private_report(report, report_path or STAGING_REPORT)
     return report
 
 
@@ -157,5 +160,5 @@ def collect_current_staging(*, min_sources=2):
 def staging_status(path=None):
     location = Path(path or STAGING_REPORT)
     if not location.exists():
-        return {'status': 'not_run', 'phase': '0.8-homologacao'}
+        return {'status': 'not_run', 'phase': '0.9-homologacao-persistente'}
     return json.loads(location.read_text(encoding='utf-8'))

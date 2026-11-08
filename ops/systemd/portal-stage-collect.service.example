@@ -1,0 +1,11 @@
+[Unit]
+Description=Portal Oportunidades - coleta de homologacao privada
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/CAMINHO/ABSOLUTO/portal-oportunidades
+Environment=PORTAL_STAGING_DIR=/CAMINHO/ABSOLUTO/VOLUME-PERSISTENTE/homologacao
+ExecStart=/usr/bin/python3 /CAMINHO/ABSOLUTO/portal-oportunidades/app.py stage-collect --min-sources 2
+NoNewPrivileges=true
+PrivateTmp=true

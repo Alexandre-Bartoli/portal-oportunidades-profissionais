@@ -22,6 +22,14 @@ jobs:
         env:
           PORTAL_HTTP_TIMEOUT: '8'
           PORTAL_HTTP_ATTEMPTS: '2'
+      - name: Diagnosticar persistencia temporaria e pendencias de fontes
+        if: always()
+        run: |
+          python3 app.py stage-review-sources
+          python3 app.py stage-backups
+          if [ -f data/homologacao.sqlite3 ]; then
+            python3 app.py stage-check-links --limit 12
+          fi
       - name: Relatar apenas estado e contagens
         if: always()
         run: |

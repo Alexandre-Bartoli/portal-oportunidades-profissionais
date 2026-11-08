@@ -1,0 +1,11 @@
+[Unit]
+Description=Verificacao agendada de vagas, somente apos revisao de fontes
+
+[Timer]
+OnCalendar=*-*-* 07,19:00:00
+Persistent=true
+RandomizedDelaySec=20m
+Unit=portal-stage-collect.service
+
+[Install]
+WantedBy=timers.target

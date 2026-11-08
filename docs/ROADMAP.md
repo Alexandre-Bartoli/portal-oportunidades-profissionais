@@ -108,3 +108,19 @@ comprova coleta real**. Veja [a documentação](VALIDACAO_07.md).
 Ver [procedimento de homologação](HOMOLOGACAO_08.md).
 
 Evidência externa da versão 0.8: [relatório de homologação](EVIDENCIA_HOMOLOGACAO_08.md).
+
+## Versão experimental 0.9: persistência e recuperação local
+
+- [x] Aceitar diretório absoluto configurável para banco de homologação em volume persistente
+- [x] Criar snapshots SQLite consistentes com verificação e rotação local
+- [x] Testar restauração, cópia anterior e prevenção de restauração concorrente
+- [x] Registrar status documental por fonte sem inferir autorização de uso
+- [x] Adicionar auditoria conservadora e opcional dos links, sem inativar anúncios
+- [x] Incluir modelos manuais de agendamento sem ativação automática
+- [ ] Provisionar ambiente com volume realmente persistente e backups externos
+- [ ] Revisar juridicamente condições de acesso e republicação de cada fonte
+- [ ] Verificar links individuais em fontes com acesso técnico permitido
+- [ ] Implementar autenticação, proteção de tráfego e publicação multiusuário
+- [ ] Implementar filtros geográficos com base oficial de municípios
+
+Ver [manual da homologação 0.9](HOMOLOGACAO_09.md).

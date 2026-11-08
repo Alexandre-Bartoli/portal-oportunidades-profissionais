@@ -2,7 +2,7 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão experimental 0.8).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real foi validada em GitHub Actions na versão 0.7, mas ainda não foi concluída neste ambiente local; a nova homologação 0.8 precisa ser executada em um ambiente com rede. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
+> **Estado atual: prova de conceito (versão experimental 0.9).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real foi validada em GitHub Actions na versão 0.7, mas ainda não foi concluída neste ambiente local; a homologação 0.8 gravou 7 vagas reais em banco temporário no GitHub Actions, mas não mantém um serviço público disponível. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
 
 ## O que já funciona no código
 
@@ -215,3 +215,17 @@ Python** também passaram. Isso comprova a etapa técnica de persistência em
 homologação, mas **não** constitui autorização de republicação, verificação
 manual dos links ou implantação pública. Consulte
 [os dados, limites e execuções](docs/EVIDENCIA_HOMOLOGACAO_08.md).
+
+## Evolução experimental 0.9: homologação com dados persistentes e recuperação
+
+* `PORTAL_STAGING_DIR` permite usar um volume local persistente absoluto, isolado do banco principal e com permissões restritas.
+* `python3 app.py stage-backup` cria snapshot consistente e validado, com rotação local de dez arquivos.
+* `stage-collect` cria backup automático quando pelo menos uma fonte completa retorna vagas.
+* `stage-backups` lista cópias. `stage-restore --name ARQUIVO --confirm` valida e restaura com cópia anterior e bloqueio contra servidor em execução.
+* `stage-review-sources` registra pendências e evidências documentais sem supor autorização.
+* `stage-check-links` apresenta amostra sem rede por padrão; `--network` só consulta domínios conhecidos de fontes com revisão técnica registrada. Resposta HTTP não comprova candidatura aberta nem modifica vagas.
+* Os modelos de agendamento em `ops/systemd/` não são ativados automaticamente.
+
+**Não há hospedagem permanente instalada por este código:** o operador precisa providenciar a unidade persistente, a revisão das fontes e o ambiente protegido. A validação de links reais permanece pendente enquanto as fontes estiverem sem documentação aprovada.
+
+Leia [o procedimento da versão 0.9](docs/HOMOLOGACAO_09.md).

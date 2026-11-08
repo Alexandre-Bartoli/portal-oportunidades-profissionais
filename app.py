@@ -33,7 +33,7 @@ class Handler(BaseHTTPRequestHandler):
   if u.path=='/api/providers':
    from provider_catalog import CATALOG
    return self.response(json.dumps({'providers':CATALOG},ensure_ascii=False))
-  if u.path=='/api/health':return self.response(json.dumps({'status':'ok','version':'0.8-experimental','mode':'homologacao' if STAGING_MODE else 'local'}))
+  if u.path=='/api/health':return self.response(json.dumps({'status':'ok','version':'0.9-experimental','mode':'homologacao' if STAGING_MODE else 'local'}))
   if u.path=='/api/portals':return self.response(json.dumps({'portals':portals_json()},ensure_ascii=False))
   if u.path=='/api/jobs':
    try:
@@ -67,11 +67,19 @@ def main():
   print(json.dumps(collect_once(),ensure_ascii=False,indent=2))
  elif cmd=='stage-collect':
   import argparse
-  from homologacao import collect_current_staging
+  from homologacao import collect_current_staging, STAGING_DB
+  from stage_storage import staging_lock, backup_staging, write_private_report
+  from homologacao import STAGING_REPORT
   parser=argparse.ArgumentParser(description='Coleta de homologação em banco isolado')
   parser.add_argument('--min-sources',type=int,default=2)
   args=parser.parse_args(sys.argv[2:])
-  report=collect_current_staging(min_sources=args.min_sources)
+  with staging_lock(STAGING_DB.parent):
+   report=collect_current_staging(min_sources=args.min_sources)
+   if report['summary']['ok'] > 0:
+    report['automatic_backup'] = backup_staging(STAGING_DB)
+   else:
+    report['automatic_backup'] = {'skipped':'nenhuma fonte completa com vagas nesta execução'}
+   write_private_report(report,STAGING_REPORT)
   print(json.dumps(report,ensure_ascii=False,indent=2))
   if not report['criteria']['met']:raise SystemExit(2)
  elif cmd=='stage-status':
@@ -80,13 +88,55 @@ def main():
  elif cmd=='stage-serve':
   import core
   from homologacao import STAGING_DB, MAIN_DB
+  from stage_storage import staging_lock
   if STAGING_DB.resolve()==MAIN_DB.resolve():raise SystemExit('Banco de homologação inválido')
   if not STAGING_DB.exists():raise SystemExit('Execute stage-collect antes de abrir a homologação')
   global STAGING_MODE
   STAGING_MODE=True
   core.DB=STAGING_DB
   print('HOMOLOGAÇÃO LOCAL: http://127.0.0.1:8767',flush=True)
-  ThreadingHTTPServer(('127.0.0.1',8767),Handler).serve_forever()
+  with staging_lock(STAGING_DB.parent):
+   ThreadingHTTPServer(('127.0.0.1',8767),Handler).serve_forever()
+ elif cmd=='stage-backup':
+  from homologacao import STAGING_DB
+  from stage_storage import backup_staging, staging_lock
+  with staging_lock(STAGING_DB.parent):
+   print(json.dumps(backup_staging(STAGING_DB), ensure_ascii=False, indent=2))
+ elif cmd=='stage-backups':
+  from homologacao import STAGING_DB
+  from stage_storage import backup_list
+  print(json.dumps({'backups':backup_list(STAGING_DB.parent/'backups')},ensure_ascii=False,indent=2))
+ elif cmd=='stage-restore':
+  import argparse
+  from homologacao import STAGING_DB
+  from stage_storage import restore_staging, staging_lock
+  parser=argparse.ArgumentParser(description='Restaurar backup somente com servidor desligado')
+  parser.add_argument('--name',required=True,help='Nome do arquivo listado em stage-backups')
+  parser.add_argument('--confirm',action='store_true',help='Confirma a substituição do banco')
+  args=parser.parse_args(sys.argv[2:])
+  with staging_lock(STAGING_DB.parent, exclusive=True):
+   print(json.dumps(restore_staging(args.name,confirm=args.confirm,db_path=STAGING_DB),ensure_ascii=False,indent=2))
+ elif cmd=='stage-review-sources':
+  from homologacao import STAGING_DB
+  from source_reviews import review_report
+  from stage_storage import write_private_report
+  config=json.loads((BASE/'sources.json').read_text(encoding='utf-8'))
+  report=review_report(config)
+  write_private_report(report,STAGING_DB.parent/'revisao_fontes.json')
+  print(json.dumps(report,ensure_ascii=False,indent=2))
+ elif cmd=='stage-check-links':
+  import argparse
+  from homologacao import STAGING_DB
+  from stage_storage import staging_lock
+  from link_checks import audit_links
+  parser=argparse.ArgumentParser(description='Amostra de links sem alterar vagas')
+  parser.add_argument('--limit',type=int,default=12)
+  parser.add_argument('--network',action='store_true',help='Consultar somente fontes com revisão documental válida')
+  args=parser.parse_args(sys.argv[2:])
+  config=json.loads((BASE/'sources.json').read_text(encoding='utf-8'))
+  with staging_lock(STAGING_DB.parent):
+   report=audit_links(STAGING_DB,config,limit=args.limit,network=args.network,report_path=STAGING_DB.parent/'auditoria_links.json')
+  print(json.dumps(report,ensure_ascii=False,indent=2))
  elif cmd=='verify-sources':
   import argparse
   from source_validation import verify_current_sources
