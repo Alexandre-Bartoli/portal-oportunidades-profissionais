@@ -73,7 +73,7 @@ docs/              Escopo e decisões técnicas
 
 Os módulos legados de importação foram preservados do protótipo, mas **a estratégia da primeira versão planejada é pesquisa automática**, sem importar vagas manualmente. Eles não constituem integração ativa com portais brasileiros.
 
-Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A pesquisa por estado, município e distância ainda não foi implementada.
+Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. O conector experimental Gupy mantém o país desconhecido, pois seu campo de estado não comprova o país. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A pesquisa por estado, município e distância ainda não foi implementada.
 
 Os conectores experimentais SmartRecruiters e Breezy rejeitam alguns registros malformados; links Breezy fora do domínio esperado tornam o inventário parcial e não devem provocar desativação de vagas ausentes. Essas verificações não substituem testes de conexão real nem revisão de condições de uso.
 

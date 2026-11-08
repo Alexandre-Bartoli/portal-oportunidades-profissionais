@@ -5,6 +5,11 @@ from signals import analyze
 from core import category, make_job
 
 class GupyTests(unittest.TestCase):
+ def test_unknown_state_does_not_imply_brazil(self):
+  from gupy import normalize_item
+  raw={'id':'1','name':'Estágio','type':'vacancy_type_internship',
+       'jobUrl':'https://acme.gupy.io/jobs/1','state':'Ontario'}
+  self.assertIsNone(normalize_item(raw, 'internship')['country'])
  def sample(self):
   return {'id':123, 'name':'Estágio em Agronomia', 'type':'vacancy_type_internship', 'jobUrl':'https://empresa.gupy.io/jobs/123', 'city':'Barbacena','state':'Minas Gerais','workplaceType':'hybrid'}
  def test_endpoint(self):
@@ -21,7 +26,7 @@ class GupyTests(unittest.TestCase):
  def test_normalized_db_job(self):
   raw=normalize_item(self.sample(),'internship')
   job=make_job('gupy','estagio',raw)
-  self.assertEqual(job['country'],'BR')
+  self.assertIsNone(job['country'])
   self.assertEqual(job['kind'],'internship')
  def test_bad_response_fails(self):
   with self.assertRaises(ValueError):fetch('estágio',get_json=lambda _: {'unexpected':[]})
