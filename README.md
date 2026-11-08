@@ -75,6 +75,8 @@ Para novas coletas, o país não é mais deduzido de nomes de cidades no campo d
 
 Os conectores experimentais SmartRecruiters e Breezy rejeitam alguns registros malformados; links Breezy fora do domínio esperado tornam o inventário parcial e não devem provocar desativação de vagas ausentes. Essas verificações não substituem testes de conexão real nem revisão de condições de uso.
 
+As consultas JSON centrais aceitam somente os domínios explícitos de Greenhouse, Lever, Ashby e Gupy, em HTTPS, sem credenciais ou portas não autorizadas. Redirecionamentos são recusados. Mudanças de domínio dos provedores podem interromper a coleta e exigem revisão; isso não substitui uma auditoria completa de segurança de rede.
+
 ## Planejamento da versão 1.0
 
 O produto final terá escolha entre **estágio, emprego ou vagas temporárias**, seguida de **nacional, internacional ou ambos**. No Brasil, filtros de UF, município e distância máxima em quilômetros. A distância inicial será calculada em linha reta, quando existirem dados geográficos confiáveis. Veja [escopo funcional](docs/PLANEJAMENTO.md) e [roteiro de desenvolvimento](docs/ROADMAP.md).

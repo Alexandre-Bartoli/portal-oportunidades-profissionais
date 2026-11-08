@@ -96,17 +96,28 @@ def make_job(provider,source,raw):
  'mode':mode,'kind':kind,'review_status':review,'areas':areas_for(title,description),
  'last_seen':datetime.now(timezone.utc).isoformat(),'demo':0}
 
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+ def redirect_request(self, req, fp, code, msg, headers, newurl):
+  return None
+
+
 def get_json(url, attempts=None, wait=time.sleep):
  """Consulta HTTPS com tentativas limitadas para falhas transitórias."""
  if attempts is None:
   attempts = max(1, min(int(os.getenv('PORTAL_HTTP_ATTEMPTS', '3')), 3))
  timeout = max(3, min(int(os.getenv('PORTAL_HTTP_TIMEOUT', '20')), 20))
- if not url.startswith('https://'):
-  raise ValueError('A consulta deve utilizar HTTPS')
+ try:
+  parsed=urllib.parse.urlsplit(url)
+  if (parsed.scheme!='https' or parsed.hostname not in {'boards-api.greenhouse.io','api.lever.co','api.ashbyhq.com','portal.gupy.io'}
+      or parsed.username is not None or parsed.password is not None or parsed.port not in (None,443)):
+   raise ValueError('Endereço de provedor não permitido')
+ except (TypeError,ValueError):
+  raise ValueError('Endereço de provedor não permitido') from None
  request=urllib.request.Request(url,headers={'User-Agent':'PortalOportunidades/0.7 (research prototype)','Accept':'application/json'})
+ opener=urllib.request.build_opener(NoRedirectHandler())
  for attempt in range(attempts):
   try:
-   with urllib.request.urlopen(request, timeout=timeout) as response:
+   with opener.open(request, timeout=timeout) as response:
     return json.load(response)
   except urllib.error.HTTPError as exc:
    if exc.code not in (429,500,502,503,504) or attempt==attempts-1:
