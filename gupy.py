@@ -63,7 +63,7 @@ def normalize_item(raw, requested_kind):
         'company': str(raw.get('careerPageName') or ''),
         'description': str(raw.get('description') or ''),
         'location': ', '.join(v for v in (city, state) if v),
-        'country': 'BR' if state else None,
+        'country': None,
         'mode': MODES.get(raw.get('workplaceType'), 'unknown'),
         'kind': kind, 'url': url,
         'date': raw.get('publishedDate'),
