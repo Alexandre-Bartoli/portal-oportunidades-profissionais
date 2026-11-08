@@ -147,9 +147,17 @@ def fetch_source(provider,slug):
     break
    offset+=100
  elif provider=='ashby':
-  data=get_json('https://api.ashbyhq.com/posting-api/job-board/'+encoded);items=[j for j in data['jobs'] if isinstance(j,dict) and j.get('isListed',True)] if isinstance(data,dict) and isinstance(data.get('jobs'),list) else None
+  data=get_json('https://api.ashbyhq.com/posting-api/job-board/'+encoded);items=data.get('jobs') if isinstance(data,dict) else None
  else: raise ValueError('Provedor não permitido')
  if not isinstance(items,list):raise ValueError('Resposta inválida da fonte')
+ if any(not isinstance(raw,dict) for raw in items):raise ValueError('Anúncio inválido na resposta')
+ if provider=='ashby':items=[raw for raw in items if raw.get('isListed',True)]
+ for raw in items:
+  if provider=='greenhouse':title,url=raw.get('title'),raw.get('absolute_url')
+  elif provider=='lever':title,url=raw.get('text'),raw.get('hostedUrl') or raw.get('applyUrl')
+  else:title,url=raw.get('title'),raw.get('jobUrl') or raw.get('applyUrl')
+  if not isinstance(title,str) or not title.strip() or not isinstance(url,str) or not url.startswith('https://'):
+   raise ValueError('Anúncio sem título ou endereço válido')
  from providers_extra import ListingBatch
  return ListingBatch([j for raw in items if isinstance(raw,dict) and (j:=make_job(provider,slug,raw)) is not None],
                      complete=complete if provider=='lever' else True, raw_count=len(items))
