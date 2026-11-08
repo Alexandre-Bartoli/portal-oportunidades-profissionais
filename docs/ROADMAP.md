@@ -82,7 +82,7 @@
 - [x] Gerar relatório estruturado com resultados por fonte e critério mínimo
 - [x] Criar execução manual no GitHub Actions, sem credenciais ou dados pessoais
 - [x] Ampliar cobertura de testes com respostas simuladas
-- [x] Confirmar pelo menos duas fontes independentes com anúncios reais via GitHub Actions em 07/11/2026
+- [ ] Confirmar pelo menos duas fontes independentes com anúncios reais
 - [ ] Verificar links e qualidade dos anúncios manualmente
 - [ ] Revisar as condições de consulta e utilização de cada fonte
 - [ ] Repetir testes em datas diferentes para demonstrar estabilidade
@@ -90,4 +90,19 @@
 A execução local em 07/11/2026 apresentou quatro erros de rede e **não
 comprova coleta real**. Veja [a documentação](VALIDACAO_07.md).
 
-O critério de fontes com anúncios reais foi alcançado apenas na execução do GitHub Actions. Essa aprovação técnica não substitui a revisão das condições de utilização nem a conferência manual dos links. [Evidência da execução](EVIDENCIA_VALIDACAO_07.md).
+## Versão experimental 0.8: homologação isolada
+
+- [x] Criar banco SQLite independente da base principal
+- [x] Validar inventário antes de salvar cada fonte
+- [x] Registrar estados por fonte e estatísticas de anúncios armazenados
+- [x] Persistir vagas compatíveis, mantendo deduplicação e origem
+- [x] Preservar vagas após erros de consulta ou inventários parciais
+- [x] Impedir inclusão de anúncios de demonstração
+- [x] Servir resultados pela interface/API apenas em endereço local separado
+- [x] Criar testes de fluxo completo e workflow de auditoria no GitHub Actions
+- [ ] Confirmar persistência de vagas reais no runner externo
+- [ ] Conferir amostra de links individuais e condições de utilização
+- [ ] Implantar homologação privada persistente com backups e proteção de acesso
+- [ ] Publicar portal para usuários finais após revisão técnica e jurídica
+
+Ver [procedimento de homologação](HOMOLOGACAO_08.md).

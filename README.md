@@ -2,7 +2,7 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão experimental 0.7).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real ainda não foi validada neste ambiente. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
+> **Estado atual: prova de conceito (versão experimental 0.8).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real foi validada em GitHub Actions na versão 0.7, mas ainda não foi concluída neste ambiente local; a nova homologação 0.8 precisa ser executada em um ambiente com rede. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
 
 ## O que já funciona no código
 
@@ -178,8 +178,30 @@ e zero fontes confirmadas. Esse resultado não indica ausência de vagas.
 
 Consulte [o procedimento e os critérios de validação](docs/VALIDACAO_07.md).
 
-## Evidência de coleta externa no GitHub Actions (07/11/2026)
 
-A auditoria executada pelo GitHub Actions conseguiu consultar quatro fontes e classificar **7 vagas de 3 fontes independentes** em um universo de 152 anúncios, enquanto a execução local encontrou falhas de rede. O critério técnico mínimo da versão 0.7 foi cumprido no ambiente do GitHub. A auditoria não grava vagas no SQLite. A revisão das condições de utilização dos dados e a confirmação individual dos links ainda estão pendentes.
+## Homologação isolada da versão experimental 0.8
 
-Veja [os resultados detalhados](docs/EVIDENCIA_VALIDACAO_07.md).
+A nova versão permite **coletar anúncios para um banco separado** e consultar os
+resultados pela API e página local, sem modificar o banco principal:
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 app.py stage-collect --min-sources 2
+python3 app.py stage-status
+python3 app.py stage-serve
+```
+
+Abra `http://127.0.0.1:8767` após a coleta. `stage-serve` não inicia o
+agendador. O ambiente de homologação utiliza `data/homologacao.sqlite3`, enquanto
+o banco principal continua em `data/jobs.sqlite3`. Ambos são ignorados pelo Git.
+Um relatório sanitizado em `data/homologacao_status.json` indica as fontes
+consultadas, quantos anúncios foram classificados e quantos continuam ativos.
+
+O workflow `.github/workflows/homologacao.yml` usa um banco temporário no runner
+do GitHub, executa os testes e tenta uma coleta real, guardando **somente o
+relatório**, nunca o banco com descrições dos anúncios. Isso não disponibiliza o
+portal pela internet nem garante armazenamento permanente. Não significa que
+um anúncio individual esteja aberto para candidatura ou que tenhamos autorização
+para redistribuí-lo publicamente.
+
+Leia [o procedimento de homologação e limites](docs/HOMOLOGACAO_08.md).

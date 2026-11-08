@@ -281,9 +281,10 @@ def stats():
  with connect() as db:
   return dict(db.execute('SELECT active,COUNT(*) FROM jobs WHERE demo=0 GROUP BY active').fetchall())
 
-def query(q='',country='',kind='internship',limit=30):
+def query(q='',country='',kind='internship',limit=30,exclude_demo=False):
  init();limit=max(1,min(int(limit),100))
  statement='SELECT * FROM jobs WHERE active=1';args=[]
+ if exclude_demo:statement+=' AND demo=0'
  if q:
   statement+=' AND (lower(title) LIKE ? OR lower(description) LIKE ? OR lower(areas) LIKE ?)'
   args.extend(['%'+q.lower()+'%']*3)
