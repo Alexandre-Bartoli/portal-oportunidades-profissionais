@@ -52,6 +52,8 @@ class StagingTests(unittest.TestCase):
         self.assertFalse(self.main.exists())
         with staging_database(self.stage):
             self.assertEqual(len(core.query(exclude_demo=True)),1)
+            from admin_history import recent
+            self.assertEqual(recent()[0]['mode'],'homologacao')
         self.assertEqual(core.DB,self.main)
         self.assertEqual(staging_status(self.report)['summary']['ok'],1)
         self.assertFalse((self.root/'report.json.tmp').exists())
@@ -166,13 +168,14 @@ class StagingTests(unittest.TestCase):
 
     def test_local_staging_http_reads_only_staged_records(self):
         import app
+        import base64
         from http.server import ThreadingHTTPServer
         from threading import Thread
         from urllib.request import urlopen
         cfg=config(('lever','acme',True))
         j=job('lever','acme','1','https://example.org/jobs/1')
         self.run_staging(cfg,lambda *_:ListingBatch([j],raw_count=1))
-        with patch('app.STAGING_MODE',True), patch('homologacao.STAGING_REPORT',self.report):
+        with patch('app.STAGING_MODE',True), patch('homologacao.STAGING_REPORT',self.report), patch.dict('os.environ', {'PORTAL_ADMIN_USER':'operator', 'PORTAL_ADMIN_PASSWORD':'x'*40}):
             with staging_database(self.stage):
                 server=ThreadingHTTPServer(('127.0.0.1',0),app.Handler)
                 worker=Thread(target=server.serve_forever,daemon=True)
@@ -186,7 +189,9 @@ class StagingTests(unittest.TestCase):
                         payload=json.load(res)
                     self.assertEqual(payload['count'],1)
                     self.assertEqual(payload['results'][0]['demo'],0)
-                    with urlopen(base+'/api/staging-status',timeout=3) as res:
+                    from urllib.request import Request
+                    auth=base64.b64encode(('operator:'+('x'*40)).encode()).decode()
+                    with urlopen(Request(base+'/api/staging-status',headers={'Authorization':'Basic '+auth}),timeout=3) as res:
                         stage=json.load(res)
                     self.assertEqual(stage['active_real_jobs_in_staging_db'],1)
                 finally:

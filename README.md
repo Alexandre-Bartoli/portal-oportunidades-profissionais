@@ -17,7 +17,7 @@ Projeto experimental de pesquisa automática de oportunidades profissionais no B
 * Vagas coletadas deixam de ser exibidas após duas consultas bem sucedidas consecutivas em que desapareceram da fonte; falhas de rede não ocasionam desativação.
 * A API `/api/collection-status` informa a quantidade de fontes consultadas com sucesso e erro, vagas capturadas e registros ativos.
 
-**Não implementado:** comprovação da coleta real neste ambiente; coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação; controle de curadoria; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
+**Não implementado:** comprovação da coleta real neste ambiente; coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação apropriada para produção; controle de curadoria; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
 
 ## Requisitos
 
@@ -53,7 +53,8 @@ Para testar sem internet com quatro **anúncios fictícios**, execute `python3 a
 * `/api/jobs?q=...&country=BR&kind=internship&limit=30` : pesquisa por categoria, incluindo `employment`, `temporary` e `all`.
   Também aceita `region=brazil` ou `international`, `mode=remote`, `hybrid`, `onsite` ou `unknown`, `area` com nome de área reconhecida e `offset` entre 0 e 10000. Os filtros são combinados. País desconhecido fica fora dos filtros de região; os dados ainda dependem da qualidade da fonte.
 * A interface local oferece navegação por páginas de até 30 resultados. O instante mostrado nos detalhes é o último registro de coleta da vaga, não uma confirmação de que a candidatura ainda está aberta.
-* `/api/collection-status` : resultado da última execução, incluindo fontes parciais.
+* `/admin` e `/api/admin` : painel e indicadores administrativos locais, protegidos por credenciais. Veja [painel administrativo](docs/PAINEL_ADMINISTRATIVO.md).
+* `/api/collection-status` : resultado protegido da última execução, incluindo fontes parciais.
 * `/api/providers` : catálogo técnico dos conectores.
 * `/api/portals` : catálogo de referência de portais brasileiros; **não** significa integração ativa.
 
@@ -85,7 +86,7 @@ O produto final terá escolha entre **estágio, emprego ou vagas temporárias**,
 
 ## Segurança e responsabilidade
 
-Este servidor liga somente em `127.0.0.1`; **não publique diretamente na Internet**. Faltam autenticação administrativa, limitação de requisições, revisão de licenciamento das fontes, testes de carga, controles de segurança e gestão de dados pessoais. Nenhum dado real de candidatos deve ser incluído no repositório. As candidaturas devem ocorrer nas fontes oficiais.
+Este servidor liga somente em `127.0.0.1`; **não publique diretamente na Internet**. O painel tem autenticação básica para uso local, mas faltam HTTPS, controles de autenticação adequados à produção, revisão de licenciamento das fontes, testes de carga e gestão de dados pessoais. Nenhum dado real de candidatos deve ser incluído no repositório. As candidaturas devem ocorrer nas fontes oficiais.
 
 ## Licenciamento
 

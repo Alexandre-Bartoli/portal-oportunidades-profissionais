@@ -60,6 +60,13 @@ def collect_once():
              'collected': count, 'successful_sources': successful,
              'failed_sources': failed, 'real_jobs_active': stats().get(1, 0),
              'audit_summary': audit_summary(results), 'sources': results}
+    try:
+        from admin_history import record
+        record({'checked_at':state['finished_at'], 'mode':'local', 'collected':count,
+                'active':state['real_jobs_active'], 'success':successful, 'errors':failed})
+    except Exception:
+        LOG.exception('Não foi possível registrar o histórico da coleta')
+        state['history_error'] = True
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
     return state
