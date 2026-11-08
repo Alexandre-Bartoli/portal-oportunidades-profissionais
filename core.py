@@ -86,7 +86,6 @@ def make_job(provider,source,raw):
   mode=raw.get('mode','unknown')
  else: raise ValueError('Fonte desconhecida')
  if not title or not url or not url.startswith('https://'): return None
- if not country and any(x in normalize_text(str(location)) for x in ('brasil','brazil','sao paulo','belo horizonte','campinas','rio de janeiro','curitiba','porto alegre','recife','fortaleza','brasilia')):country='BR'
  employment = str(raw.get('employmentType') or (raw.get('categories') or {}).get('commitment') or '')
  kind = raw.get('kind') if provider in ('gupy','smartrecruiters','breezy') else category(title,description,employment)
  if kind=='other':return None
@@ -167,6 +166,7 @@ def connect():
  DB.parent.mkdir(parents=True,exist_ok=True)
  db=sqlite3.connect(DB)
  try:
+  db.execute('PRAGMA foreign_keys=ON')
   with db:
    yield db
  finally:
@@ -289,7 +289,12 @@ def stats():
  with connect() as db:
   return dict(db.execute('SELECT active,COUNT(*) FROM jobs WHERE demo=0 GROUP BY active').fetchall())
 
-def query(q='',country='',kind='internship',limit=30,exclude_demo=False):
+def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, region='', mode='', area='', offset=0):
+ if region not in ('','brazil','international'):raise ValueError('Região inválida')
+ if mode not in ('','remote','onsite','hybrid','unknown'):raise ValueError('Modalidade inválida')
+ if area and area not in AREAS:raise ValueError('Área inválida')
+ offset=int(offset)
+ if not 0<=offset<=10000:raise ValueError('Página inválida')
  init();limit=max(1,min(int(limit),100))
  statement='SELECT * FROM jobs WHERE active=1';args=[]
  if exclude_demo:statement+=' AND demo=0'
@@ -298,7 +303,11 @@ def query(q='',country='',kind='internship',limit=30,exclude_demo=False):
   args.extend(['%'+q.lower()+'%']*3)
  if country:statement+=' AND country = ?';args.append(country)
  if kind:statement+=' AND kind = ?';args.append(kind)
- statement+=' ORDER BY last_seen DESC LIMIT ?';args.append(limit)
+ if region=='brazil':statement+=" AND country = 'BR'"
+ if region=='international':statement+=" AND country GLOB '[A-Z][A-Z]' AND country <> 'BR'"
+ if mode:statement+=' AND mode = ?';args.append(mode)
+ if area:statement+=' AND EXISTS (SELECT 1 FROM json_each(jobs.areas) WHERE value = ?)';args.append(area)
+ statement+=' ORDER BY last_seen DESC, id ASC LIMIT ? OFFSET ?';args.extend([limit,offset])
  with connect() as db:
   db.row_factory=sqlite3.Row
   rows=db.execute(statement,args).fetchall()
