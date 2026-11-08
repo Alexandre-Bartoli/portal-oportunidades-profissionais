@@ -123,6 +123,14 @@ def collect_staging(config, *, fetcher=None, db_path=None, report_path=None, min
             ).fetchone()[0]
         if demonstrations:
             raise RuntimeError('O banco de homologação contém anúncios fictícios')
+        try:
+            from admin_history import record
+            record({'checked_at':checked_at, 'mode':'homologacao', 'collected':saved,
+                    'active':active_real, 'success':successful,
+                    'errors':sum(r['status']=='error' for r in results)})
+            history_error = False
+        except Exception:
+            history_error = True
     report = {
         'schema_version': 1,
         'phase': '0.9-homologacao-persistente',
@@ -135,6 +143,7 @@ def collect_staging(config, *, fetcher=None, db_path=None, report_path=None, min
         },
         'summary': audit_summary(results),
         'records_processed': saved,
+        'history_error': history_error,
         'active_real_jobs_in_staging_db': active_real,
         'source_aliases_in_staging_db': aliases,
         'sources': results,

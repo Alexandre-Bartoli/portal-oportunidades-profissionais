@@ -36,6 +36,8 @@ class DiscoveryRuntimeTests(unittest.TestCase):
         dest=automatico.BASE/'data'/'fontes_sugeridas.json'
         found=json.loads(dest.read_text(encoding='utf-8'))['candidates']
         self.assertEqual(found[0]['slug'],'novacompanhia')
+        from admin_history import recent
+        self.assertEqual(recent()[0]['collected'],1)
         self.assertFalse(found[0]['enabled'])
         # Ainda não entrou em sources.json, mesmo após coleta.
         self.assertEqual(len(json.loads((automatico.BASE/'sources.json').read_text())['sources']),2)
