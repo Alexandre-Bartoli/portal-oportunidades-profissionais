@@ -39,7 +39,8 @@ class Handler(BaseHTTPRequestHandler):
    try:
     kind=p.get('kind',['internship'])[0]
     if kind not in ('internship','employment','temporary','all'):return self.response('{"error":"Categoria inválida"}',status=400)
-    result=query(q=p.get('q',[''])[0][:100],country=p.get('country',[''])[0][:3],kind='' if kind=='all' else kind,limit=p.get('limit',[30])[0],exclude_demo=STAGING_MODE)
+    result=query(q=p.get('q',[''])[0][:100],country=p.get('country',[''])[0][:3],kind='' if kind=='all' else kind,limit=p.get('limit',[30])[0],exclude_demo=STAGING_MODE,
+                 region=p.get('region',[''])[0],mode=p.get('mode',[''])[0],area=p.get('area',[''])[0],offset=p.get('offset',[0])[0])
     for item in result:item['signals']=analyze(item['title'],item['description'],item['mode'])
     return self.response(json.dumps({'count':len(result),'results':result},ensure_ascii=False))
    except ValueError:return self.response('{"error":"Parâmetro inválido"}',status=400)
@@ -47,10 +48,21 @@ class Handler(BaseHTTPRequestHandler):
   q=p.get('q',[''])[0][:100];country=p.get('country',[''])[0][:3]
   kind=p.get('kind',['internship'])[0]
   if kind not in ('internship','employment','temporary','all'):kind='internship'
-  records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE)
+  region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
+  try:
+   records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area)
+  except ValueError:return self.response('Filtro inválido','text/plain',400)
   cards=''.join('<article><h2>'+html.escape(j['title'])+'</h2><p>'+html.escape(j['location'] or 'Local não informado')+' · '+html.escape(j['country'] or 'País não informado')+'</p><p>Categoria: '+html.escape({'internship':'Estágio','employment':'Emprego','temporary':'Temporária'}.get(j['kind'],'Em revisão'))+'</p><p>Área sugerida: '+html.escape(', '.join(j['areas']) or 'Não identificada')+'</p><p>Origem: '+html.escape(j['provider'])+' · '+('EXEMPLO FICTÍCIO' if j['demo'] else 'Vaga encontrada automaticamente, pendente de revisão')+'</p><a rel="noopener noreferrer" target="_blank" href="'+html.escape(j['url'],quote=True)+'">Consultar origem</a></article>' for j in records)
   portals=''.join('<li><a href="'+html.escape(p['url'],quote=True)+'" target="_blank" rel="noopener noreferrer">'+html.escape(p['name'])+'</a> <small>('+('integração institucional pendente' if not p['connected'] else 'conectado')+')</small></li>' for p in portals_json())
   page='''<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Portal de Oportunidades | Homologação</title><style>body{font:16px system-ui;background:#f6f8fb;color:#1a2434;max-width:880px;margin:auto;padding:28px}h1{font-size:2rem}article{background:white;border:1px solid #d7dfe8;border-radius:12px;padding:16px;margin:14px 0}article h2{font-size:1.15rem}input,select,button{padding:12px;border:1px solid #9aaabc;border-radius:8px;font:inherit}button{background:#163d68;color:white;cursor:pointer}a{color:#164b84}.warn{background:#fff2d1;padding:12px;border-radius:8px}</style><h1>Portal de Oportunidades</h1><p class="warn">HOMOLOGAÇÃO. A consulta local não é uma publicação pública e as fontes exigem revisão de uso. Dados fictícios são marcados. Resultados coletados automaticamente dependem das fontes e não são oportunidades academicamente validadas.</p><form method="get"><label for="q">Pesquisar cargo ou área</label><p><input id="q" name="q" value="'''+html.escape(q,quote=True)+'''" placeholder="Ex.: Administração"><select name="kind" aria-label="Tipo de oportunidade">'''+''.join('<option value="'+k+'" '+('selected' if kind==k else '')+'>'+lab+'</option>' for k,lab in [('internship','Estágio'),('employment','Emprego'),('temporary','Temporária'),('all','Todas')])+'''</select><select name="country" aria-label="País"><option value="">Todos os países</option>'''+''.join('<option value="'+c+'" '+('selected' if country==c else '')+'>'+label+'</option>' for c,label in [('BR','Brasil'),('CA','Canadá'),('US','Estados Unidos'),('GB','Reino Unido'),('PT','Portugal')])+'''</select> <button>Pesquisar</button></p></form><p>Resultados nesta consulta: '''+str(len(records))+'''</p>'''+(cards or '<p>Nenhuma vaga encontrada.</p>')+'''<section><h2>Portais brasileiros cadastrados</h2><p>Links oficiais para consultar vagas. Ainda não são conexões automáticas.</p><ul>'''+portals+'''</ul></section><footer><small>Somente divulgação. Candidaturas realizadas no site original. Código de demonstração, não destinado a produção.</small></footer></html>'''
+  from core import AREAS
+  def selector(name, label, selected, options):
+   choices=''.join('<option value="'+html.escape(value,quote=True)+'"'+(' selected' if value==selected else '')+'>'+html.escape(caption)+'</option>' for value,caption in options)
+   return '<label>'+html.escape(label)+' <select name="'+name+'">'+choices+'</select></label> '
+  filters=selector('region','Região',region,[('','Todas'),('brazil','Brasil'),('international','Exterior')])
+  filters+=selector('mode','Modalidade',mode,[('','Todas'),('remote','Remota'),('hybrid','Híbrida'),('onsite','Presencial'),('unknown','Não informada')])
+  filters+=selector('area','Área sugerida',area,[('','Todas')]+[(x,x) for x in AREAS])
+  page=page.replace(' <button>Pesquisar</button>', ' '+filters+'<button>Pesquisar</button>')
   if not STAGING_MODE:
    page=page.replace('Portal de Oportunidades | Homologação', 'Portal de Oportunidades | Protótipo')
    page=page.replace('HOMOLOGAÇÃO. A consulta local não é uma publicação pública e as fontes exigem revisão de uso. Dados fictícios são marcados.',

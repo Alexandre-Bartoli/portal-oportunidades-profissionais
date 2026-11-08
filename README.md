@@ -50,6 +50,7 @@ Para testar sem internet com quatro **anúncios fictícios**, execute `python3 a
 * `/` : interface HTML.
 * `/api/health` : status HTTP.
 * `/api/jobs?q=...&country=BR&kind=internship&limit=30` : pesquisa por categoria, incluindo `employment`, `temporary` e `all`.
+  Também aceita `region=brazil` ou `international`, `mode=remote`, `hybrid`, `onsite` ou `unknown`, `area` com nome de área reconhecida e `offset` entre 0 e 10000. Os filtros são combinados. País desconhecido fica fora dos filtros de região; os dados ainda dependem da qualidade da fonte.
 * `/api/collection-status` : resultado da última execução, incluindo fontes parciais.
 * `/api/providers` : catálogo técnico dos conectores.
 * `/api/portals` : catálogo de referência de portais brasileiros; **não** significa integração ativa.
@@ -69,6 +70,8 @@ docs/              Escopo e decisões técnicas
 ```
 
 Os módulos legados de importação foram preservados do protótipo, mas **a estratégia da primeira versão planejada é pesquisa automática**, sem importar vagas manualmente. Eles não constituem integração ativa com portais brasileiros.
+
+Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A pesquisa por estado, município e distância ainda não foi implementada.
 
 ## Planejamento da versão 1.0
 
