@@ -83,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
   filters+=selector('municipality','Município',municipality,[('','Todos')]+[(r[0],r[1]) for r in municipalities(uf)] if uf else [('','Selecione o estado e pesquise')])
   filters+='<label>Raio em km <input name="radius_km" type="number" min="0" max="2000" step="1" value="'+html.escape(radius,quote=True)+'"></label> '
   page=page.replace(' <button>Pesquisar</button>', ' '+filters+'<button>Pesquisar</button>')
-  page=page.replace('</form>', '</form><p>Para escolher um município, selecione o estado e pesquise primeiro. A distância em linha reta é estimada entre sedes municipais, não representa percurso por estrada nem endereço exato da vaga. Vagas sem localização confirmada não aparecem em filtros geográficos.</p>',1)
+  page=page.replace('</form>', '</form><p>Para escolher um município, selecione o estado e pesquise primeiro. A distância em linha reta é estimada entre sedes municipais, não representa percurso por estrada nem endereço exato da vaga. Vagas remotas identificadas e vagas sem localização suficiente não aparecem em filtros geográficos.</p>',1)
   navigation=[]
   for target,label in ((max(0,offset-30),'Página anterior'),(offset+30,'Próxima página')):
    if (label=='Página anterior' and offset>0) or (label=='Próxima página' and has_more and target<=10000):
