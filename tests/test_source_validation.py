@@ -128,6 +128,17 @@ class ExternalValidationTests(unittest.TestCase):
 
 
 class RawCountPropagationTests(unittest.TestCase):
+    def test_malformed_source_rows_are_not_complete_inventories(self):
+        responses = {
+            'greenhouse': {'jobs': [{'id': 1, 'title': 'Estágio'}]},
+            'lever': [{'id': '1', 'text': 'Estágio'}],
+            'ashby': {'jobs': [None]},
+        }
+        for provider, payload in responses.items():
+            with self.subTest(provider=provider), patch('core.get_json', return_value=payload):
+                with self.assertRaises(ValueError):
+                    core.fetch_source(provider, 'acme')
+
     def test_greenhouse_with_full_board_no_match(self):
         with patch('core.get_json',return_value={'jobs':[{'id':1,'title':'Senior VP',
                             'absolute_url':'https://empresa.example/1'}]}):
