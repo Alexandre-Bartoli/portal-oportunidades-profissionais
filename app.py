@@ -50,7 +50,7 @@ class Handler(BaseHTTPRequestHandler):
    item=job_details(p.get('id',[''])[0][:128],exclude_demo=STAGING_MODE)
    if not item:return self.response('Vaga não encontrada','text/plain',404)
    esc=lambda value:html.escape(str(value or 'Não informado'))
-   link=canonical_url(item.get('url'))
+   link=item.get('url') if canonical_url(item.get('url')) else None
    action=('<a rel="noopener noreferrer" href="'+html.escape(link,quote=True)+'">Consultar anúncio original</a>') if link else '<p>Link não confirmado.</p>'
    notice='<p>EXEMPLO FICTÍCIO</p>' if item['demo'] else '<p>Dados coletados automaticamente, sujeitos a revisão.</p>'
    page='<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Detalhes da oportunidade</title><main><a href="/">Voltar à pesquisa</a><h1>'+esc(item['title'])+'</h1>'+notice+'<p>Fonte: '+esc(item['provider'])+' / '+esc(item['source'])+'</p><p>Local: '+esc(item['location'])+' | País: '+esc(item['country'])+'</p><p>Modalidade: '+esc(item['mode'])+'</p><p>Última verificação: '+esc(item['last_seen'])+'</p><p>'+esc(item['description'])+'</p>'+action+'</main></html>'
