@@ -40,7 +40,8 @@ class Handler(BaseHTTPRequestHandler):
     kind=p.get('kind',['internship'])[0]
     if kind not in ('internship','employment','temporary','all'):return self.response('{"error":"Categoria inválida"}',status=400)
     result=query(q=p.get('q',[''])[0][:100],country=p.get('country',[''])[0][:3],kind='' if kind=='all' else kind,limit=p.get('limit',[30])[0],exclude_demo=STAGING_MODE,
-                 region=p.get('region',[''])[0],mode=p.get('mode',[''])[0],area=p.get('area',[''])[0],offset=p.get('offset',[0])[0])
+                 region=p.get('region',[''])[0],mode=p.get('mode',[''])[0],area=p.get('area',[''])[0],offset=p.get('offset',[0])[0],
+                 uf=p.get('uf',[''])[0],municipality=p.get('municipality',[''])[0],radius_km=p.get('radius_km',[''])[0])
     for item in result:item['signals']=analyze(item['title'],item['description'],item['mode'])
     return self.response(json.dumps({'count':len(result),'results':result},ensure_ascii=False))
    except ValueError:return self.response('{"error":"Parâmetro inválido"}',status=400)
@@ -60,12 +61,13 @@ class Handler(BaseHTTPRequestHandler):
   kind=p.get('kind',['internship'])[0]
   if kind not in ('internship','employment','temporary','all'):kind='internship'
   region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
+  uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0]
   try:
    offset=int(p.get('offset',[0])[0])
-   records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset)
+   records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset,uf=uf,municipality=municipality,radius_km=radius)
   except ValueError:return self.response('Filtro inválido','text/plain',400)
   has_more=len(records)>30;records=records[:30]
-  cards=''.join('<article><h2><a href="/vaga?id='+urllib.parse.quote(j['id'],safe='')+'">'+html.escape(j['title'])+'</a></h2><p>'+html.escape(j['location'] or 'Local não informado')+' · '+html.escape(j['country'] or 'País não informado')+'</p><p>Categoria: '+html.escape({'internship':'Estágio','employment':'Emprego','temporary':'Temporária'}.get(j['kind'],'Em revisão'))+'</p><p>Área sugerida: '+html.escape(', '.join(j['areas']) or 'Não identificada')+'</p><p>Origem: '+html.escape(j['provider'])+' · '+('EXEMPLO FICTÍCIO' if j['demo'] else 'Vaga encontrada automaticamente, pendente de revisão')+'</p></article>' for j in records)
+  cards=''.join('<article><h2><a href="/vaga?id='+urllib.parse.quote(j['id'],safe='')+'">'+html.escape(j['title'])+'</a></h2><p>'+html.escape(j['location'] or 'Local não informado')+' · '+html.escape(j['country'] or 'País não informado')+'</p>'+('<p>Distância aproximada entre sedes: '+str(j['distance_km'])+' km em linha reta</p>' if 'distance_km' in j else '')+'<p>Categoria: '+html.escape({'internship':'Estágio','employment':'Emprego','temporary':'Temporária'}.get(j['kind'],'Em revisão'))+'</p><p>Área sugerida: '+html.escape(', '.join(j['areas']) or 'Não identificada')+'</p><p>Origem: '+html.escape(j['provider'])+' · '+('EXEMPLO FICTÍCIO' if j['demo'] else 'Vaga encontrada automaticamente, pendente de revisão')+'</p></article>' for j in records)
   portals=''.join('<li><a href="'+html.escape(p['url'],quote=True)+'" target="_blank" rel="noopener noreferrer">'+html.escape(p['name'])+'</a> <small>('+('integração institucional pendente' if not p['connected'] else 'conectado')+')</small></li>' for p in portals_json())
   page='''<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Portal de Oportunidades | Homologação</title><style>body{font:16px system-ui;background:#f6f8fb;color:#1a2434;max-width:880px;margin:auto;padding:28px}h1{font-size:2rem}article{background:white;border:1px solid #d7dfe8;border-radius:12px;padding:16px;margin:14px 0}article h2{font-size:1.15rem}input,select,button{padding:12px;border:1px solid #9aaabc;border-radius:8px;font:inherit}button{background:#163d68;color:white;cursor:pointer}a{color:#164b84}.warn{background:#fff2d1;padding:12px;border-radius:8px}</style><h1>Portal de Oportunidades</h1><p class="warn">HOMOLOGAÇÃO. A consulta local não é uma publicação pública e as fontes exigem revisão de uso. Dados fictícios são marcados. Resultados coletados automaticamente dependem das fontes e não são oportunidades academicamente validadas.</p><form method="get"><label for="q">Pesquisar cargo ou área</label><p><input id="q" name="q" value="'''+html.escape(q,quote=True)+'''" placeholder="Ex.: Administração"><select name="kind" aria-label="Tipo de oportunidade">'''+''.join('<option value="'+k+'" '+('selected' if kind==k else '')+'>'+lab+'</option>' for k,lab in [('internship','Estágio'),('employment','Emprego'),('temporary','Temporária'),('all','Todas')])+'''</select><select name="country" aria-label="País"><option value="">Todos os países</option>'''+''.join('<option value="'+c+'" '+('selected' if country==c else '')+'>'+label+'</option>' for c,label in [('BR','Brasil'),('CA','Canadá'),('US','Estados Unidos'),('GB','Reino Unido'),('PT','Portugal')])+'''</select> <button>Pesquisar</button></p></form><p>Resultados nesta consulta: '''+str(len(records))+'''</p>'''+(cards or '<p>Nenhuma vaga encontrada.</p>')+'''<section><h2>Portais brasileiros cadastrados</h2><p>Links oficiais para consultar vagas. Ainda não são conexões automáticas.</p><ul>'''+portals+'''</ul></section><footer><small>Somente divulgação. Candidaturas realizadas no site original. Código de demonstração, não destinado a produção.</small></footer></html>'''
   from core import AREAS
@@ -75,11 +77,17 @@ class Handler(BaseHTTPRequestHandler):
   filters=selector('region','Região',region,[('','Todas'),('brazil','Brasil'),('international','Exterior')])
   filters+=selector('mode','Modalidade',mode,[('','Todas'),('remote','Remota'),('hybrid','Híbrida'),('onsite','Presencial'),('unknown','Não informada')])
   filters+=selector('area','Área sugerida',area,[('','Todas')]+[(x,x) for x in AREAS])
+  from geografia import municipalities
+  states=sorted({r[2] for r in municipalities()})
+  filters+=selector('uf','Estado',uf,[('','Todos')]+[(x,x) for x in states])
+  filters+=selector('municipality','Município',municipality,[('','Todos')]+[(r[0],r[1]) for r in municipalities(uf)] if uf else [('','Selecione o estado e pesquise')])
+  filters+='<label>Raio em km <input name="radius_km" type="number" min="0" max="2000" step="1" value="'+html.escape(radius,quote=True)+'"></label> '
   page=page.replace(' <button>Pesquisar</button>', ' '+filters+'<button>Pesquisar</button>')
+  page=page.replace('</form>', '</form><p>Para escolher um município, selecione o estado e pesquise primeiro. A distância em linha reta é estimada entre sedes municipais, não representa percurso por estrada nem endereço exato da vaga. Vagas remotas identificadas e vagas sem localização suficiente não aparecem em filtros geográficos.</p>',1)
   navigation=[]
   for target,label in ((max(0,offset-30),'Página anterior'),(offset+30,'Próxima página')):
    if (label=='Página anterior' and offset>0) or (label=='Próxima página' and has_more and target<=10000):
-    params={'q':q,'country':country,'kind':kind,'region':region,'mode':mode,'area':area,'offset':target}
+    params={'q':q,'country':country,'kind':kind,'region':region,'mode':mode,'area':area,'uf':uf,'municipality':municipality,'radius_km':radius,'offset':target}
     navigation.append('<a href="/?'+html.escape(urllib.parse.urlencode(params),quote=True)+'">'+label+'</a>')
   page=page.replace('<section><h2>Portais brasileiros cadastrados</h2>', '<nav aria-label="Páginas">'+' | '.join(navigation)+'</nav><section><h2>Portais brasileiros cadastrados</h2>')
   if not STAGING_MODE:

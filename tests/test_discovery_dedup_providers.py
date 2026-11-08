@@ -82,7 +82,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(core.query()[0]['id'],job['id'])
         with core.connect() as db:
             self.assertEqual(db.execute('SELECT job_id FROM job_aliases').fetchone()[0],job['id'])
-            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],1)
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],2)
         core.init()  # idempotência
         self.assertEqual(len(core.query()),1)
 

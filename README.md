@@ -2,7 +2,7 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão experimental 0.9).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real foi validada em GitHub Actions na versão 0.7, mas ainda não foi concluída neste ambiente local; a homologação 0.8 gravou 7 vagas reais em banco temporário no GitHub Actions, mas não mantém um serviço público disponível. Os filtros de UF, cidade e raio geográfico permanecem no planejamento.
+> **Estado atual: prova de conceito (versão experimental 0.9).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real foi validada em GitHub Actions na versão 0.7, mas ainda não foi concluída neste ambiente local; a homologação 0.8 gravou 7 vagas reais em banco temporário no GitHub Actions, mas não mantém um serviço público disponível. A pesquisa geográfica utiliza aproximação entre sedes municipais e possui cobertura parcial.
 
 ## O que já funciona no código
 
@@ -17,7 +17,7 @@ Projeto experimental de pesquisa automática de oportunidades profissionais no B
 * Vagas coletadas deixam de ser exibidas após duas consultas bem sucedidas consecutivas em que desapareceram da fonte; falhas de rede não ocasionam desativação.
 * A API `/api/collection-status` informa a quantidade de fontes consultadas com sucesso e erro, vagas capturadas e registros ativos.
 
-**Não implementado:** comprovação da coleta real neste ambiente; coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação; controle de curadoria; busca geográfica por raio; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
+**Não implementado:** comprovação da coleta real neste ambiente; coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação; controle de curadoria; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
 
 ## Requisitos
 
@@ -73,7 +73,7 @@ docs/              Escopo e decisões técnicas
 
 Os módulos legados de importação foram preservados do protótipo, mas **a estratégia da primeira versão planejada é pesquisa automática**, sem importar vagas manualmente. Eles não constituem integração ativa com portais brasileiros.
 
-Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. O conector experimental Gupy mantém o país desconhecido, pois seu campo de estado não comprova o país. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A pesquisa por estado, município e distância ainda não foi implementada.
+Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. O conector experimental Gupy mantém o país desconhecido, pois seu campo de estado não comprova o país. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A [pesquisa geográfica](docs/PESQUISA_GEOGRAFICA.md) usa coordenadas de sedes municipais do IBGE e exclui vagas que não puderem ser localizadas de forma conservadora.
 
 Os conectores experimentais SmartRecruiters e Breezy rejeitam alguns registros malformados; links Breezy fora do domínio esperado tornam o inventário parcial e não devem provocar desativação de vagas ausentes. Essas verificações não substituem testes de conexão real nem revisão de condições de uso.
 
