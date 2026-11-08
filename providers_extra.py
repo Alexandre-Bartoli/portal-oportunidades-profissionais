@@ -73,7 +73,7 @@ def smartrecruiters(slug, get_json=read_public_json, max_pages=2):
         raw_count += len(rows)
         for row in rows:
             if not isinstance(row, dict) or not row.get('id') or not row.get('name'):
-                continue
+                raise ValueError('Anúncio SmartRecruiters inválido')
             kind = _kind(row.get('typeOfEmployment'))
             if kind == 'other':
                 # Sem tipo explicitamente reconhecido, não inventar categoria.
@@ -110,16 +110,21 @@ def breezy(slug, get_json=read_public_json):
     if not isinstance(response, list):
         raise ValueError('Resposta Breezy inválida')
     result = []
+    complete = True
     for row in response:
         if not isinstance(row, dict) or not row.get('name'):
-            continue
+            raise ValueError('Anúncio Breezy inválido')
         url = row.get('url')
+        if not isinstance(url, str) or not url:
+            raise ValueError('Anúncio Breezy sem endereço')
         try:
             parsed = urllib.parse.urlsplit(url) if isinstance(url, str) else None
             if (not parsed or parsed.scheme != 'https' or parsed.hostname != f'{slug.lower()}.breezy.hr'
                     or parsed.username or parsed.password or parsed.port not in (None, 443)):
+                complete = False
                 continue
         except ValueError:
+            complete = False
             continue
         location = row.get('location') or {}
         if not isinstance(location, dict):
@@ -138,4 +143,4 @@ def breezy(slug, get_json=read_public_json):
             'title': str(row['name']), 'description': str(row.get('description') or ''),
             'url': url, 'location': str(place), 'country': None,
             'mode': 'remote' if location.get('is_remote') else 'unknown', 'kind': kind})
-    return ListingBatch(result, complete=True, raw_count=len(response))
+    return ListingBatch(result, complete=complete, raw_count=len(response))

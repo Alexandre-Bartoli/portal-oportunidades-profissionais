@@ -73,6 +73,8 @@ Os módulos legados de importação foram preservados do protótipo, mas **a est
 
 Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A pesquisa por estado, município e distância ainda não foi implementada.
 
+Os conectores experimentais SmartRecruiters e Breezy rejeitam alguns registros malformados; links Breezy fora do domínio esperado tornam o inventário parcial e não devem provocar desativação de vagas ausentes. Essas verificações não substituem testes de conexão real nem revisão de condições de uso.
+
 ## Planejamento da versão 1.0
 
 O produto final terá escolha entre **estágio, emprego ou vagas temporárias**, seguida de **nacional, internacional ou ambos**. No Brasil, filtros de UF, município e distância máxima em quilômetros. A distância inicial será calculada em linha reta, quando existirem dados geográficos confiáveis. Veja [escopo funcional](docs/PLANEJAMENTO.md) e [roteiro de desenvolvimento](docs/ROADMAP.md).
