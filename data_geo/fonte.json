@@ -1,0 +1,13 @@
+{
+  "source": "IBGE Censo 2022 Localidades do Brasil",
+  "source_url": "https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/localidades/Localidades_do_Brasil/2022/Localidades_Brasil_gpkg.zip",
+  "zip_sha256": "1d96d5f0b379972a506d4b18c3696af974fbe59f8f6680557cb3a6dd38a0eb57",
+  "fields": [
+    "codigo",
+    "nome",
+    "uf",
+    "latitude",
+    "longitude"
+  ],
+  "quantidade_municipios": 5570
+}

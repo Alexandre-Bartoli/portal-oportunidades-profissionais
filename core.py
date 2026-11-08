@@ -91,10 +91,12 @@ def make_job(provider,source,raw):
  if kind=='other':return None
  review='review'
  fingerprint=hashlib.sha256((provider+'|'+source+'|'+extid+'|'+url).encode()).hexdigest()
+ from geografia import locate
  return {'id':fingerprint,'provider':provider,'source':source,'external_id':extid,'title':clean(title),
  'description':description[:12000],'url':url,'location':clean(location),'country':country,
  'mode':mode,'kind':kind,'review_status':review,'areas':areas_for(title,description),
- 'last_seen':datetime.now(timezone.utc).isoformat(),'demo':0}
+ 'last_seen':datetime.now(timezone.utc).isoformat(),'demo':0,
+ 'geo_municipio':locate(clean(location),country) if mode!='remote' else None}
 
 class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
  def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -194,6 +196,7 @@ def init():
   if 'misses' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN misses INTEGER DEFAULT 0')
   if 'first_seen' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN first_seen TEXT')
   if 'canonical_url' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN canonical_url TEXT')
+  if 'geo_municipio' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN geo_municipio TEXT')
   db.execute('UPDATE jobs SET first_seen=last_seen WHERE first_seen IS NULL')
   db.execute('''CREATE TABLE IF NOT EXISTS job_aliases (
     provider TEXT NOT NULL, source TEXT NOT NULL, external_id TEXT NOT NULL,
@@ -212,9 +215,12 @@ def init():
        VALUES (?,?,?,?,?,?,?,?)''',
        (provider,source,str(extid or jid),jid,jid,active or 0,misses or 0,seen))
    db.execute('PRAGMA user_version=1')
+  if db.execute('PRAGMA user_version').fetchone()[0] < 2:
+   db.execute('PRAGMA user_version=2')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_title ON jobs(title)')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_source ON jobs(provider, source, active)')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_canonical ON jobs(canonical_url, demo)')
+  db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_geo ON jobs(geo_municipio, active)')
   db.execute('CREATE INDEX IF NOT EXISTS ix_aliases_job ON job_aliases(job_id, active)')
 
 
@@ -240,16 +246,16 @@ def save(items):
    job_id = match[0] if match else j['id']
    db.execute('''INSERT INTO jobs
     (id,provider,source,external_id,title,description,url,location,country,mode,kind,
-     review_status,areas,last_seen,demo,active,misses,first_seen,canonical_url)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+     review_status,areas,last_seen,demo,active,misses,first_seen,canonical_url,geo_municipio)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, description=excluded.description, url=excluded.url,
     canonical_url=excluded.canonical_url, location=excluded.location,
     country=excluded.country, mode=excluded.mode, kind=excluded.kind,
     review_status=excluded.review_status, areas=excluded.areas,
-    last_seen=excluded.last_seen, active=1, misses=0''',
+    last_seen=excluded.last_seen, geo_municipio=excluded.geo_municipio, active=1, misses=0''',
     (job_id,j['provider'],j['source'],external_id,j['title'],j['description'],j['url'],j['location'],
      j['country'],j['mode'],j['kind'],j['review_status'],json.dumps(j['areas'],ensure_ascii=False),
-     j['last_seen'],demo,1,0,j['last_seen'],canonical))
+     j['last_seen'],demo,1,0,j['last_seen'],canonical,j.get('geo_municipio')))
    if not demo:
     db.execute('''INSERT INTO job_aliases
       (provider,source,external_id,source_job_id,job_id,active,misses,last_seen)
@@ -300,7 +306,17 @@ def stats():
  with connect() as db:
   return dict(db.execute('SELECT active,COUNT(*) FROM jobs WHERE demo=0 GROUP BY active').fetchall())
 
-def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, region='', mode='', area='', offset=0):
+def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, region='', mode='', area='', offset=0, uf='', municipality='', radius_km=None):
+ import math
+ from geografia import catalog, distance_km
+ cities=catalog()[0]
+ states={v[2] for v in cities.values()}
+ if uf and uf not in states:raise ValueError('Estado inválido')
+ if municipality and (not uf or municipality not in cities or cities[municipality][2]!=uf):raise ValueError('Município inválido')
+ if radius_km not in (None,''):
+  radius_km=float(radius_km)
+  if not municipality or not math.isfinite(radius_km) or not 0<=radius_km<=2000:raise ValueError('Raio inválido')
+ else:radius_km=None
  if region not in ('','brazil','international'):raise ValueError('Região inválida')
  if mode not in ('','remote','onsite','hybrid','unknown'):raise ValueError('Modalidade inválida')
  if area and area not in AREAS:raise ValueError('Área inválida')
@@ -318,11 +334,22 @@ def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, regi
  if region=='international':statement+=" AND country GLOB '[A-Z][A-Z]' AND country <> 'BR'"
  if mode:statement+=' AND mode = ?';args.append(mode)
  if area:statement+=' AND EXISTS (SELECT 1 FROM json_each(jobs.areas) WHERE value = ?)';args.append(area)
+ if radius_km is not None:
+  statement+=' AND geo_distance(geo_municipio) <= ?';args.append(radius_km)
+ elif municipality:
+  statement+=' AND geo_municipio = ?';args.append(municipality)
+ elif uf:
+  statement+=' AND geo_uf(geo_municipio) = ?';args.append(uf)
  statement+=' ORDER BY last_seen DESC, id ASC LIMIT ? OFFSET ?';args.extend([limit,offset])
  with connect() as db:
+  db.create_function('geo_uf',1,lambda code: cities[code][2] if code in cities else None)
+  db.create_function('geo_distance',1,lambda code: distance_km(municipality,code) if code in cities else None)
   db.row_factory=sqlite3.Row
   rows=db.execute(statement,args).fetchall()
- return [dict(r,areas=json.loads(r['areas'])) for r in rows]
+ result=[dict(r,areas=json.loads(r['areas'])) for r in rows]
+ if radius_km is not None:
+  for item in result:item['distance_km']=round(distance_km(municipality,item['geo_municipio']),1)
+ return result
 
 
 def job_details(job_id, exclude_demo=False):
