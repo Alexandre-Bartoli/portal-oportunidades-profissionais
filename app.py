@@ -66,9 +66,16 @@ class Handler(BaseHTTPRequestHandler):
    if not item:return self.response('Vaga não encontrada','text/plain',404)
    esc=lambda value:html.escape(str(value or 'Não informado'))
    link=item.get('url') if canonical_url(item.get('url')) else None
-   action=('<a rel="noopener noreferrer" href="'+html.escape(link,quote=True)+'">Consultar anúncio original</a>') if link else '<p>Link não confirmado.</p>'
+   link_label='Consultar anúncio na Remotive' if item['provider']=='remotive' else 'Consultar anúncio na fonte'
+   action=('<a rel="noopener noreferrer" href="'+html.escape(link,quote=True)+'">'+link_label+'</a>') if link else '<p>Link não confirmado.</p>'
    notice='<p>EXEMPLO FICTÍCIO</p>' if item['demo'] else '<p>Dados coletados automaticamente, sujeitos a revisão.</p>'
-   page='<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Detalhes da oportunidade</title><main><a href="/">Voltar à pesquisa</a><h1>'+esc(item['title'])+'</h1>'+notice+'<p>Fonte: '+esc(item['provider'])+' / '+esc(item['source'])+'</p><p>Local: '+esc(item['location'])+' | País: '+esc(item['country'])+'</p><p>Modalidade: '+esc(item['mode'])+'</p><p>Última verificação: '+esc(item['last_seen'])+'</p><p>'+esc(item['description'])+'</p>'+action+'</main></html>'
+   labels={'selecao_interna':'Possível seleção interna','pagamento_suspeito':'Possível cobrança relacionada à inscrição',
+           'modalidade_hibrida':'Descrição menciona trabalho híbrido','presencial':'Descrição menciona trabalho presencial',
+           'modalidade_inconsistente':'Modalidade pode divergir da descrição'}
+   flags=analyze(item['title'],item['description'],item['mode'])
+   warnings=('<section><h2>Sinais para conferir</h2><p>São indícios automáticos, não conclusões. Confira no anúncio original.</p><ul>'+
+             ''.join('<li>'+esc(labels.get(f['type'],f['type']))+': '+esc(f['evidence'])+'</li>' for f in flags)+'</ul></section>') if flags else ''
+   page='<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Detalhes da oportunidade</title><main><a href="/">Voltar à pesquisa</a><h1>'+esc(item['title'])+'</h1>'+notice+'<p>Empresa: '+esc(item.get('company'))+'</p><p>Fonte: '+esc(item['provider'])+' / '+esc(item['source'])+'</p><p>Local: '+esc(item['location'])+' | País: '+esc(item['country'])+'</p><p>Modalidade: '+esc(item['mode'])+'</p><p>Data de publicação: '+esc(item.get('published_at'))+'</p><p>Última verificação na coleta: '+esc(item['last_seen'])+'</p><p>'+esc(item['description'])+'</p>'+warnings+action+'</main></html>'
    return self.response(page,'text/html')
   if u.path!='/':return self.response('Não encontrado','text/plain',404)
   q=p.get('q',[''])[0][:100];country=p.get('country',[''])[0][:3]
@@ -226,9 +233,13 @@ def main():
    except Exception as exc:print('Erro em feed brasileiro',feed.get('portal'),str(exc),file=sys.stderr)
   print('Total brasileiro importado:',total)
  elif cmd=='collect':
+  from source_reviews import pending_technical_review
   config=json.loads((BASE/'sources.json').read_text(encoding='utf-8'));total=0
   for source in config['sources']:
    if not source.get('enabled'):continue
+   if pending_technical_review(source):
+    print('Fonte aguardando revisão técnica:',source['provider'],source['slug'])
+    continue
    try:
     found=fetch_source(source['provider'],source['slug']);save(found);total+=len(found)
     print(source['provider'],source['slug'],len(found),'vagas com indício de estágio')

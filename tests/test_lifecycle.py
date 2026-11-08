@@ -49,7 +49,7 @@ class LifecycleTests(unittest.TestCase):
         class Response:
             def __enter__(self):return self
             def __exit__(self,*args):pass
-            def read(self):return b'{"jobs": []}'
+            def read(self, size=-1):return b'{"jobs": []}'
         failure=urllib.error.HTTPError('https://api.lever.co',503,'unavailable',{},None)
         with patch('core.urllib.request.build_opener') as factory:
             opener=factory.return_value.open

@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 from source_quality import audit_result, audit_summary, classify_error, validate_sources
 from listing_identity import canonical_url
+from source_reviews import pending_technical_review
 
 
 REQUIRED = ('id', 'title', 'url', 'kind', 'provider', 'source')
@@ -73,6 +74,11 @@ def verify_config(config, *, fetcher=None, min_sources=2, now=None):
         if not entry['enabled']:
             continue
         provider, slug = entry['provider'], entry['slug']
+        if pending_technical_review(entry):
+            results.append({'source':f'{provider}/{slug}', 'status':'pending_review',
+                'reason':'technical_review_required', 'jobs':None, 'http_observed':False,
+                'usage_review':entry.get('usage_review','pending')})
+            continue
         started = time.perf_counter()
         try:
             items = fetcher(provider, slug)

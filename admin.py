@@ -5,9 +5,11 @@ import html
 import hmac
 import json
 import os
+import sqlite3
 from pathlib import Path
 import threading
 import time
+from urllib.parse import quote
 
 import core
 from admin_history import recent
@@ -105,12 +107,20 @@ def dashboard(staging=False):
     links = _read_json(data_dir / 'auditoria_links.json') if staging else None
     backups = backup_list(db_path.parent / 'backups')
     history = recent()
+    duplicate_review = None
+    if core.DB.is_file():
+        try:
+            from revisao_duplicatas import inspect
+            duplicate_review = inspect(core.DB)
+        except (ValueError, OSError, sqlite3.Error):
+            duplicate_review = {'status':'unavailable'}
     last = {'checked_at': status.get('checked_at') or status.get('finished_at'),
             'collected': status.get('records_processed', status.get('collected')),
             'active': status.get('active_real_jobs_in_staging_db', status.get('real_jobs_active')),
             'status': status.get('status')}
     alerts = []
-    status_names = {'error':'erro de coleta', 'invalid_data':'dados inválidos', 'partial':'retorno parcial'}
+    status_names = {'error':'erro de coleta', 'invalid_data':'dados inválidos', 'partial':'retorno parcial',
+                    'pending_review':'revisão técnica pendente'}
     for row in sources:
         if row['status'] in status_names:
             alerts.append('Fonte '+row['source']+': '+status_names[row['status']])
@@ -134,14 +144,15 @@ def dashboard(staging=False):
                            'statuses': links.get('statuses')} if links else None,
             'backups': {'scope': 'homologacao_local', 'count': len(backups),
                         'latest': backups[-1]['name'] if backups else None},
-            'review_status': reviews['status'], 'alerts': alerts}
+            'review_status': reviews['status'], 'alerts': alerts,
+            'possible_duplicates':duplicate_review}
 
 
 def render(report):
     def e(value):
         return html.escape(str('Não registrado' if value is None else value), quote=True)
     names={'ok':'Sucesso','empty':'Fonte sem anúncios','no_match':'Sem vagas elegíveis',
-           'partial':'Resposta parcial','error':'Erro','invalid_data':'Dados inválidos',
+           'partial':'Resposta parcial','error':'Erro','invalid_data':'Dados inválidos','pending_review':'Revisão técnica pendente',
            'pending':'Pendente','rejected':'Rejeitada','invalid_evidence':'Evidência inválida',
            'approved_access_only':'Acesso técnico revisado','approved_republication':'Republicação revisada'}
     entries = ''.join('<tr><td>'+e(x['source'])+'</td><td>'+('Sim' if x['enabled'] else 'Não')+
@@ -164,6 +175,16 @@ def render(report):
     suggestions = report.get('suggestions')
     suggestion_html = ('<ul>'+''.join('<li>'+e(x['source'])+' | '+e(x['status'])+'</li>' for x in suggestions)+'</ul>') if suggestions else '<p>Não registrado ou sem sugestões.</p>'
     alert_html = '<ul>'+''.join('<li>'+e(x)+'</li>' for x in report.get('alerts',[]))+'</ul>'
+    duplicate_review=report.get('possible_duplicates')
+    if duplicate_review and 'groups' in duplicate_review:
+        groups=duplicate_review['groups']
+        duplicate_html='<p>'+e(len(groups))+' grupos para revisão. Nenhuma vaga foi removida ou unida.</p>'
+        duplicate_html+=''.join('<ul>'+''.join('<li>'+e(job['title'])+' | '+e(job['source'])+
+            ' | <a href="/vaga?id='+quote(str(job['id']),safe='')+'">Consultar vaga</a></li>' for job in group['jobs'])+'</ul>' for group in groups[:100])
+        if duplicate_review['truncated'] or len(groups)>100:
+            duplicate_html+='<p>Exibição limitada; a análise não cobre todos os registros.</p>'
+    else:
+        duplicate_html='<p>Não registrado ou indisponível.</p>'
     return ('<!doctype html><html lang="pt-BR"><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>Administração do portal</title><style>body{font:16px system-ui;max-width:1100px;'
@@ -183,5 +204,5 @@ def render(report):
         '</p><p>Auditoria de links: '+e(links.get('checked_at') if links else None)+
         ' | Amostra: '+e(links.get('sampled') if links else None)+' | Situações: '+e(link_details)+'</p>'
         '<p>A presença de um arquivo não comprova a integridade ou restauração do backup. Backups externos e monitoramento contínuo não são comprovados aqui.</p><h3>Sugestões de fontes</h3>'+
-        suggestion_html+'<h3>Alertas</h3>'+alert_html+'</section>'
+        suggestion_html+'<h3>Possíveis duplicatas</h3>'+duplicate_html+'<h3>Alertas</h3>'+alert_html+'</section>'
         '</main></html>')

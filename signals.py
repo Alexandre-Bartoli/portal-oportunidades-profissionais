@@ -6,7 +6,8 @@ Mads Lorentzen e no Job Pindorama. Regras reescritas para o portal.
 import re
 
 PATTERNS = {
-    'selecao_interna': [r'\b(?:processo seletivo|recrutamento) interno\b', r'\binternal applicants only\b'],
+    'selecao_interna': [r'\b(?:processo seletivo|recrutamento) interno\b', r'\binternal applicants only\b',
+                        r'\bexclusiv[oa]\s+(?:para|a)\s+(?:colaboradores|funcion[aá]rios)\b'],
     'pagamento_suspeito': [r'\b(?:pague|dep[oó]sito|pix)\b.{0,45}\b(?:taxa|inscri[çc][ãa]o|vaga|contrata[çc][ãa]o)\b',
                            r'\b(?:taxa|inscri[çc][ãa]o)\b.{0,40}\b(?:pix|dep[oó]sito)\b'],
     'modalidade_hibrida': [r'\b(?:modelo|regime|trabalho|atua[çc][ãa]o)\s+(?:de\s+trabalho\s+)?h[íi]brid[oa]\b',

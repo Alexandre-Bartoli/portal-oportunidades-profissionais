@@ -31,6 +31,8 @@ Os números e estados dependem dos dados que cada coleta já registra. Quantidad
 
 O histórico guarda no banco do respectivo ambiente somente data, modo e contagens gerais de execuções novas. Dados anteriores não são reconstruídos. Falhas ao registrar histórico são indicadas no relatório da coleta e no painel. As sugestões são exibidas somente quando o respectivo ambiente produziu o arquivo de sugestões; não há ativação automática.
 
+O painel também sinaliza possíveis duplicatas com mesmo título, localização, país e descrição longa normalizada. A análise cobre até 1.000 registros ativos recentes e informa se há mais registros não analisados. Os grupos exigem revisão humana; a análise não altera nem une vagas e não assegura que anúncios sejam duplicados.
+
 Em homologação, o painel lê o relatório e os backups do diretório configurado em `PORTAL_STAGING_DIR`; no modo local, lê o estado da coleta local e identifica os backups como pertencentes à homologação. O painel não realiza monitoramento contínuo nem verifica backups externos.
 
 Procedimentos de backup, restauração e armazenamento de homologação estão em [HOMOLOGACAO_09.md](HOMOLOGACAO_09.md). Revise as condições de uso de cada fonte antes de executá-la ou publicar os resultados.

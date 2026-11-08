@@ -133,6 +133,20 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(len(report['history']), 1)
         self.assertEqual(report['history'][0]['collected'], 3)
 
+    def test_admin_can_review_possible_duplicates_without_merging(self):
+        text='Atendimento e conferência de documentos para a equipe. '*6
+        for source in ('one','two'):
+            item=core.make_job('lever',source,{'id':'1','text':'Estágio administrativo',
+                'hostedUrl':'https://example.org/'+source, 'descriptionPlain':text,
+                'country':'BR','categories':{'location':'Barbacena, MG'}})
+            core.save([item])
+        with self.request('/api/admin', 'operador:' + 'x' * 40) as response:
+            result=json.load(response)
+        self.assertEqual(len(result['possible_duplicates']['groups']),1)
+        with self.request('/admin', 'operador:' + 'x' * 40) as response:
+            page=response.read().decode('utf-8')
+        self.assertIn('Possíveis duplicatas',page)
+
     def test_corrupt_history_is_reported_as_unavailable(self):
         core.DB.parent.mkdir(parents=True)
         core.DB.write_bytes(b'not a sqlite database')

@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy'})
+PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy', 'solides', 'remotive', 'workable'})
 CATEGORY = frozenset({'internship', 'employment', 'temporary'})
 
 
@@ -35,6 +35,12 @@ def validate_sources(config):
             raise ValueError('Identificador do provedor inválido')
         if provider == 'gupy' and slug not in {'estagio', 'emprego', 'temporario'}:
             raise ValueError('Pesquisa Gupy não está entre as categorias permitidas')
+        if provider == 'solides' and slug not in {'estagio', 'emprego', 'temporario'}:
+            raise ValueError('Pesquisa Sólides não está entre as categorias permitidas')
+        if provider == 'remotive' and slug != 'feed':
+            raise ValueError('Identificador Remotive inválido')
+        if provider == 'workable' and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}',slug):
+            raise ValueError('Identificador Workable inválido')
     return {'total': len(config['sources']), 'enabled': sum(s['enabled'] for s in config['sources'])}
 
 
@@ -42,6 +48,9 @@ def classify_error(exc):
     """Diagnóstico de falhas: nunca interpretar exceção como lista vazia."""
     import urllib.error
     import json
+    from source_limits import RateLimited
+    if isinstance(exc, RateLimited):
+        return 'rate_limited'
     if isinstance(exc, urllib.error.HTTPError):
         if exc.code == 404:
             return 'not_found'
@@ -86,4 +95,5 @@ def audit_summary(results):
     counts = Counter(r['status'] for r in results)
     return {'ok': counts['ok'], 'empty': counts['empty'], 'no_match': counts['no_match'],
             'error': counts['error'], 'partial': counts['partial'],
+            'pending_review': counts['pending_review'],
             'jobs': sum((r.get('jobs') or 0) for r in results), 'sources_checked': len(results)}
