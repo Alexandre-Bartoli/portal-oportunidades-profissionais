@@ -16,4 +16,10 @@ CATALOG = [
      'endpoint': 'api.smartrecruiters.com', 'configured_automatically': False},
     {'provider': 'breezy', 'scope': 'companies', 'experimental': True,
      'endpoint': '*.breezy.hr', 'configured_automatically': False},
+    {'provider': 'solides', 'scope': 'brazil_search', 'experimental': True,
+     'endpoint': 'vagas.solides.com.br', 'configured_automatically': False},
+    {'provider': 'remotive', 'scope': 'remote_feed', 'experimental': True,
+     'endpoint': 'remotive.com', 'configured_automatically': False},
+    {'provider': 'workable', 'scope': 'companies', 'experimental': True,
+     'endpoint': 'apply.workable.com', 'configured_automatically': False},
 ]

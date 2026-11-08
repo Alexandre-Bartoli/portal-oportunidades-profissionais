@@ -17,7 +17,7 @@ from providers_extra import ListingBatch
 from source_quality import audit_result, audit_summary, validate_sources
 from source_validation import _check_jobs
 from stage_storage import stage_paths, ensure_private, write_private_report
-from source_reviews import review_report
+from source_reviews import review_report, pending_technical_review
 
 STAGING_DB, STAGING_REPORT = stage_paths()
 MAIN_DB = core.BASE / 'data' / 'jobs.sqlite3'
@@ -85,6 +85,11 @@ def collect_staging(config, *, fetcher=None, db_path=None, report_path=None, min
             if not source['enabled']:
                 continue
             provider, slug = source['provider'], source['slug']
+            if pending_technical_review(source):
+                results.append({'source':provider+'/'+slug, 'status':'pending_review',
+                    'reason':'technical_review_required', 'jobs':None, 'checked_at':checked_at,
+                    'usage_review':source.get('usage_review','pending'), 'stored':0})
+                continue
             started = time.perf_counter()
             try:
                 items = fetcher(provider, slug)

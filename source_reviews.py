@@ -6,6 +6,11 @@ from source_quality import validate_sources
 
 
 VALID_SCOPES = {'technical_access', 'republication'}
+REVIEW_REQUIRED_PROVIDERS = frozenset({'gupy','solides','remotive','workable'})
+
+
+def pending_technical_review(entry):
+    return entry['provider'] in REVIEW_REQUIRED_PROVIDERS and not source_review(entry)['technical_probe_allowed']
 
 
 def source_review(entry):

@@ -35,6 +35,12 @@ def normalize_text(value):
  import unicodedata
  return ''.join(ch for ch in unicodedata.normalize('NFKD', (value or '').lower()) if not unicodedata.combining(ch))
 
+def valid_publication_date(value):
+ if not isinstance(value,str) or not value or len(value)>40:return None
+ try:datetime.fromisoformat(value.replace('Z','+00:00'))
+ except ValueError:return None
+ return value
+
 def classify(title,description=''):
  t=normalize_text(title)
  if NEGATIVE.search(t): return 'other','review'
@@ -76,7 +82,7 @@ def make_job(provider,source,raw):
   extid=str(raw.get('id') or raw.get('jobUrl') or '')
   address=raw.get('address') or {};postal=address.get('postalAddress') or {}
   country=postal.get('addressCountry');mode={'Remote':'remote','Hybrid':'hybrid','OnSite':'onsite'}.get(raw.get('workplaceType'),'unknown')
- elif provider in ('smartrecruiters','breezy'):
+ elif provider in ('smartrecruiters','breezy','solides','remotive','workable'):
   title=raw.get('title','');description=clean(raw.get('description',''));url=raw.get('url','')
   location=raw.get('location','');extid=str(raw.get('id',''));country=raw.get('country')
   mode=raw.get('mode','unknown')
@@ -87,16 +93,20 @@ def make_job(provider,source,raw):
  else: raise ValueError('Fonte desconhecida')
  if not title or not url or not url.startswith('https://'): return None
  employment = str(raw.get('employmentType') or (raw.get('categories') or {}).get('commitment') or '')
- kind = raw.get('kind') if provider in ('gupy','smartrecruiters','breezy') else category(title,description,employment)
+ kind = raw.get('kind') if provider in ('gupy','smartrecruiters','breezy','solides','remotive','workable') else category(title,description,employment)
  if kind=='other':return None
  review='review'
  fingerprint=hashlib.sha256((provider+'|'+source+'|'+extid+'|'+url).encode()).hexdigest()
  from geografia import locate
+ company=raw.get('company')
+ company=clean(company)[:200] or None if isinstance(company,str) else None
+ published_at=valid_publication_date(raw.get('published_at') or raw.get('date'))
  return {'id':fingerprint,'provider':provider,'source':source,'external_id':extid,'title':clean(title),
  'description':description[:12000],'url':url,'location':clean(location),'country':country,
  'mode':mode,'kind':kind,'review_status':review,'areas':areas_for(title,description),
  'last_seen':datetime.now(timezone.utc).isoformat(),'demo':0,
- 'geo_municipio':locate(clean(location),country) if mode!='remote' else None}
+ 'geo_municipio':locate(clean(location),country) if mode!='remote' else None,
+ 'company':company,'published_at':published_at}
 
 class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
  def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -110,7 +120,7 @@ def get_json(url, attempts=None, wait=time.sleep):
  timeout = max(3, min(int(os.getenv('PORTAL_HTTP_TIMEOUT', '20')), 20))
  try:
   parsed=urllib.parse.urlsplit(url)
-  if (parsed.scheme!='https' or parsed.hostname not in {'boards-api.greenhouse.io','api.lever.co','api.ashbyhq.com','portal.gupy.io'}
+  if (parsed.scheme!='https' or parsed.hostname not in {'boards-api.greenhouse.io','api.lever.co','api.ashbyhq.com','portal.gupy.io','vagas.solides.com.br','remotive.com','apply.workable.com'}
       or parsed.username is not None or parsed.password is not None or parsed.port not in (None,443)):
    raise ValueError('Endereço de provedor não permitido')
  except (TypeError,ValueError):
@@ -120,7 +130,9 @@ def get_json(url, attempts=None, wait=time.sleep):
  for attempt in range(attempts):
   try:
    with opener.open(request, timeout=timeout) as response:
-    return json.load(response)
+    body=response.read(10_000_001)
+    if len(body)>10_000_000:raise ValueError('Resposta excede o limite permitido')
+    return json.loads(body)
   except urllib.error.HTTPError as exc:
    if exc.code not in (429,500,502,503,504) or attempt==attempts-1:
     raise
@@ -132,6 +144,17 @@ def get_json(url, attempts=None, wait=time.sleep):
 
 def fetch_source(provider,slug):
  encoded=urllib.parse.quote(slug,safe='')
+ if provider in ('solides','remotive','workable'):
+  from fontes_novas import fetch
+  from providers_extra import ListingBatch
+  if provider=='remotive':
+   from source_limits import acquire
+   acquire('remotive',BASE/'data'/'source_rate_limits.sqlite3')
+   getter=lambda url:get_json(url,attempts=1)
+  else:getter=get_json
+  rows=fetch(provider,slug,getter)
+  return ListingBatch([job for raw in rows if (job:=make_job(provider,slug,raw)) is not None],
+                      complete=False,raw_count=rows.raw_count)
  if provider=='gupy':
   from gupy import fetch
   terms={'estagio':'internship','emprego':'employment','temporario':'temporary'}
@@ -197,6 +220,8 @@ def init():
   if 'first_seen' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN first_seen TEXT')
   if 'canonical_url' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN canonical_url TEXT')
   if 'geo_municipio' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN geo_municipio TEXT')
+  if 'company' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN company TEXT')
+  if 'published_at' not in columns:db.execute('ALTER TABLE jobs ADD COLUMN published_at TEXT')
   db.execute('UPDATE jobs SET first_seen=last_seen WHERE first_seen IS NULL')
   db.execute('''CREATE TABLE IF NOT EXISTS job_aliases (
     provider TEXT NOT NULL, source TEXT NOT NULL, external_id TEXT NOT NULL,
@@ -217,6 +242,8 @@ def init():
    db.execute('PRAGMA user_version=1')
   if db.execute('PRAGMA user_version').fetchone()[0] < 2:
    db.execute('PRAGMA user_version=2')
+  if db.execute('PRAGMA user_version').fetchone()[0] < 3:
+   db.execute('PRAGMA user_version=3')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_title ON jobs(title)')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_source ON jobs(provider, source, active)')
   db.execute('CREATE INDEX IF NOT EXISTS ix_jobs_canonical ON jobs(canonical_url, demo)')
@@ -246,16 +273,18 @@ def save(items):
    job_id = match[0] if match else j['id']
    db.execute('''INSERT INTO jobs
     (id,provider,source,external_id,title,description,url,location,country,mode,kind,
-     review_status,areas,last_seen,demo,active,misses,first_seen,canonical_url,geo_municipio)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+     review_status,areas,last_seen,demo,active,misses,first_seen,canonical_url,geo_municipio,company,published_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, description=excluded.description, url=excluded.url,
     canonical_url=excluded.canonical_url, location=excluded.location,
     country=excluded.country, mode=excluded.mode, kind=excluded.kind,
     review_status=excluded.review_status, areas=excluded.areas,
-    last_seen=excluded.last_seen, geo_municipio=excluded.geo_municipio, active=1, misses=0''',
+    last_seen=excluded.last_seen, geo_municipio=excluded.geo_municipio,
+    company=COALESCE(excluded.company,jobs.company), published_at=COALESCE(excluded.published_at,jobs.published_at),
+    active=1, misses=0''',
     (job_id,j['provider'],j['source'],external_id,j['title'],j['description'],j['url'],j['location'],
      j['country'],j['mode'],j['kind'],j['review_status'],json.dumps(j['areas'],ensure_ascii=False),
-     j['last_seen'],demo,1,0,j['last_seen'],canonical,j.get('geo_municipio')))
+     j['last_seen'],demo,1,0,j['last_seen'],canonical,j.get('geo_municipio'),j.get('company'),j.get('published_at')))
    if not demo:
     db.execute('''INSERT INTO job_aliases
       (provider,source,external_id,source_job_id,job_id,active,misses,last_seen)

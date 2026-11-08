@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from core import BASE, fetch_source, save, init, mark_missing, stats, connect
 from source_quality import validate_sources, audit_result, audit_summary
 from discover_sources import from_database
+from source_reviews import pending_technical_review
 
 LOG = logging.getLogger('coleta')
 STATE = BASE / 'data' / 'ultima_coleta.json'
@@ -25,6 +26,11 @@ def collect_once():
             continue
         provider, slug = source['provider'], source['slug']
         name = provider + '/' + slug
+        if pending_technical_review(source):
+            results.append({'source':name, 'status':'pending_review',
+                'reason':'technical_review_required', 'jobs':None,
+                'checked_at':datetime.now(timezone.utc).isoformat()})
+            continue
         try:
             items = fetch_source(provider, slug)
             if not isinstance(items, list):

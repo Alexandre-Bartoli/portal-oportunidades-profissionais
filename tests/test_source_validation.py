@@ -71,7 +71,10 @@ class ExternalValidationTests(unittest.TestCase):
         self.assertFalse(result['criteria']['met'])
 
     def test_partial_list_is_not_validated_even_with_jobs(self):
-        result=verify_config(config(('gupy','estagio',True)),fetcher=lambda *_:ListingBatch([posting()],complete=False,raw_count=100),min_sources=1)
+        c=config(('gupy','estagio',True))
+        c['sources'][0].update(usage_review='approved',usage_evidence_url='https://example.org/terms',
+                               usage_reviewed_by='tester',usage_reviewed_at='2020-01-01',usage_scope='technical_access')
+        result=verify_config(c,fetcher=lambda *_:ListingBatch([posting()],complete=False,raw_count=100),min_sources=1)
         self.assertEqual(result['summary']['partial'],1)
         self.assertFalse(result['criteria']['met'])
 

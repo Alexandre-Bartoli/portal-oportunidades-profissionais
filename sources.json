@@ -44,6 +44,30 @@
       "enabled": false,
       "region": "BR",
       "note": "Habilitar apenas após validação das condições de acesso e consulta real"
+    },
+    {
+      "provider": "solides",
+      "slug": "estagio",
+      "enabled": false,
+      "note": "Experimental: uso e coleta real pendentes de revisão"
+    },
+    {
+      "provider": "solides",
+      "slug": "emprego",
+      "enabled": false,
+      "note": "Experimental: uso e coleta real pendentes de revisão"
+    },
+    {
+      "provider": "solides",
+      "slug": "temporario",
+      "enabled": false,
+      "note": "Experimental: uso e coleta real pendentes de revisão"
+    },
+    {
+      "provider": "remotive",
+      "slug": "feed",
+      "enabled": false,
+      "note": "Experimental: revisar atribuição, acesso e condições antes de ativar"
     }
   ]
 }
