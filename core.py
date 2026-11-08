@@ -324,6 +324,14 @@ def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, regi
   rows=db.execute(statement,args).fetchall()
  return [dict(r,areas=json.loads(r['areas'])) for r in rows]
 
+
+def job_details(job_id, exclude_demo=False):
+ init()
+ with connect() as db:
+  db.row_factory=sqlite3.Row
+  row=db.execute('SELECT * FROM jobs WHERE id=? AND active=1'+(' AND demo=0' if exclude_demo else ''), (job_id,)).fetchone()
+  return dict(row, areas=json.loads(row['areas'])) if row else None
+
 def demo():
  init()
  fixtures=[('Estágio em Administração','Administração','BR','Belo Horizonte','https://example.org/estagio-admin'),
