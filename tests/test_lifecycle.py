@@ -50,19 +50,23 @@ class LifecycleTests(unittest.TestCase):
             def __enter__(self):return self
             def __exit__(self,*args):pass
             def read(self):return b'{"jobs": []}'
-        failure=urllib.error.HTTPError('https://example.org',503,'unavailable',{},None)
-        with patch('core.urllib.request.urlopen',side_effect=[failure,Response()]) as opener:
+        failure=urllib.error.HTTPError('https://api.lever.co',503,'unavailable',{},None)
+        with patch('core.urllib.request.build_opener') as factory:
+            opener=factory.return_value.open
+            opener.side_effect=[failure,Response()]
             waits=[]
-            result=core.get_json('https://example.org',wait=waits.append)
+            result=core.get_json('https://api.lever.co',wait=waits.append)
         self.assertEqual(result['jobs'],[])
         self.assertEqual(opener.call_count,2)
         self.assertEqual(waits,[1])
 
     def test_no_retry_for_404(self):
-        failure=urllib.error.HTTPError('https://example.org',404,'not found',{},None)
-        with patch('core.urllib.request.urlopen',side_effect=failure) as opener:
+        failure=urllib.error.HTTPError('https://api.lever.co',404,'not found',{},None)
+        with patch('core.urllib.request.build_opener') as factory:
+            opener=factory.return_value.open
+            opener.side_effect=failure
             with self.assertRaises(urllib.error.HTTPError):
-                core.get_json('https://example.org',wait=lambda _:None)
+                core.get_json('https://api.lever.co',wait=lambda _:None)
         self.assertEqual(opener.call_count,1)
 
     def test_reject_invalid_provider_response(self):
