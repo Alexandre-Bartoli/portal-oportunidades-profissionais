@@ -109,11 +109,14 @@ class SearchFiltersTests(unittest.TestCase):
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         job_id = core.query(region='brazil')[0]['id']
+        with core.connect() as db:
+            db.execute('UPDATE jobs SET url=? WHERE id=?', ('https://example.org/1?source=application', job_id))
         base = 'http://127.0.0.1:' + str(server.server_port)
         with urllib.request.urlopen(base + '/vaga?id=' + job_id) as response:
             page = response.read().decode('utf-8')
         self.assertIn('Estágio em Administração', page)
         self.assertIn('Última verificação', page)
+        self.assertIn('https://example.org/1?source=application', page)
         with self.assertRaises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(base + '/vaga?id=inexistente')
         self.assertEqual(error.exception.code, 404)
