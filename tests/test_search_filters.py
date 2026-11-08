@@ -96,6 +96,61 @@ class SearchFiltersTests(unittest.TestCase):
         self.assertNotIn('Estágio em Enfermagem', page)
         self.assertIn('name="region"', page)
 
+    def test_detail_page_shows_description_and_unknown_job_404(self):
+        import app
+        import threading
+        import urllib.error
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        server = ThreadingHTTPServer(('127.0.0.1', 0), app.Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 3)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        job_id = core.query(region='brazil')[0]['id']
+        base = 'http://127.0.0.1:' + str(server.server_port)
+        with urllib.request.urlopen(base + '/vaga?id=' + job_id) as response:
+            page = response.read().decode('utf-8')
+        self.assertIn('Estágio em Administração', page)
+        self.assertIn('Última verificação', page)
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(base + '/vaga?id=inexistente')
+        self.assertEqual(error.exception.code, 404)
+
+    def test_details_do_not_return_inactive_or_staging_demo_jobs(self):
+        row = core.query(region='brazil')[0]
+        with core.connect() as db:
+            db.execute('UPDATE jobs SET demo=1 WHERE id=?', (row['id'],))
+        self.assertIsNone(core.job_details(row['id'], exclude_demo=True))
+        with core.connect() as db:
+            db.execute('UPDATE jobs SET active=0 WHERE id=?', (row['id'],))
+        self.assertIsNone(core.job_details(row['id']))
+
+    def test_result_navigation_preserves_filters(self):
+        import app
+        import threading
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        for n in range(35):
+            job = core.make_job('lever', 'acme', {'id': 'p'+str(n), 'text': 'Estágio',
+                'hostedUrl': 'https://example.org/p'+str(n), 'country': 'BR'})
+            core.save([job])
+        server = ThreadingHTTPServer(('127.0.0.1', 0), app.Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 3)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        base = 'http://127.0.0.1:' + str(server.server_port)
+        with urllib.request.urlopen(base + '/?kind=all&region=brazil') as response:
+            page = response.read().decode('utf-8')
+        self.assertIn('Próxima página', page)
+        self.assertIn('offset=30', page)
+        with urllib.request.urlopen(base + '/?kind=all&region=brazil&offset=30') as response:
+            second = response.read().decode('utf-8')
+        self.assertIn('Página anterior', second)
+
 
 if __name__ == '__main__':
     unittest.main()

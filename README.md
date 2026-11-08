@@ -49,8 +49,10 @@ Para testar sem internet com quatro **anúncios fictícios**, execute `python3 a
 
 * `/` : interface HTML.
 * `/api/health` : status HTTP.
+* `/vaga?id=...` : detalhes de uma oportunidade ativa; dados de demonstração permanecem identificados e são excluídos da homologação.
 * `/api/jobs?q=...&country=BR&kind=internship&limit=30` : pesquisa por categoria, incluindo `employment`, `temporary` e `all`.
   Também aceita `region=brazil` ou `international`, `mode=remote`, `hybrid`, `onsite` ou `unknown`, `area` com nome de área reconhecida e `offset` entre 0 e 10000. Os filtros são combinados. País desconhecido fica fora dos filtros de região; os dados ainda dependem da qualidade da fonte.
+* A interface local oferece navegação por páginas de até 30 resultados. O instante mostrado nos detalhes é o último registro de coleta da vaga, não uma confirmação de que a candidatura ainda está aberta.
 * `/api/collection-status` : resultado da última execução, incluindo fontes parciais.
 * `/api/providers` : catálogo técnico dos conectores.
 * `/api/portals` : catálogo de referência de portais brasileiros; **não** significa integração ativa.
