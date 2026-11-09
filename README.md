@@ -2,11 +2,11 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão experimental 0.9).** O código classifica estágios, empregos e vagas temporárias quando há evidências no anúncio. O cadastro de fontes inclui Greenhouse, Lever e Ashby; Gupy, SmartRecruiters e Breezy possuem módulos experimentais, sem habilitação automática. A coleta real foi validada em GitHub Actions na versão 0.7, mas ainda não foi concluída neste ambiente local; a homologação 0.8 gravou 7 vagas reais em banco temporário no GitHub Actions, mas não mantém um serviço público disponível. A pesquisa geográfica utiliza aproximação entre sedes municipais e possui cobertura parcial.
+> **Estado atual: prova de conceito (versão experimental 0.9).** A Gupy está habilitada experimentalmente, sem chave, e a revisão de uso continua pendente. A resposta pública de busca foi verificada no navegador; a coleta integrada neste ambiente ainda não foi comprovada. A homologação 0.8 gravou 7 vagas reais de outras fontes em banco temporário, mas não mantém um serviço público disponível. A pesquisa geográfica utiliza aproximação entre sedes municipais e possui cobertura parcial.
 
 ## O que já funciona no código
 
-* Consulta a quadros de vagas Greenhouse, Lever e Ashby com identificadores de organizações configurados em `sources.json`. Conectores adicionais experimentais permanecem desabilitados até validação.
+* Consulta a quadros de vagas Greenhouse, Lever e Ashby, além de Gupy experimental, configurados em `sources.json`. As demais fontes experimentais permanecem desabilitadas.
 * Tarefa de atualização periódica enquanto o servidor estiver executando (padrão de 6 horas).
 * Identificação heurística de possíveis estágios e agrupamento aproximado por área de conhecimento.
 * Armazenamento local SQLite e pesquisa textual por título, descrição e área.
@@ -107,9 +107,9 @@ A versão 0.4 melhora a **confiabilidade do processo de coleta**, mas **não con
 ## Atualização experimental 0.5: estudo Job Pindorama e AI Job Search
 
 Foi implementado um **adaptador experimental Gupy** (`gupy.py`) com classificação de
-estágio, emprego e temporárias e validação de URLs. Ele fica **desabilitado**
-por padrão em `sources.json` até verificar a permissão de acesso, a estabilidade
-da rota de consulta e a obtenção de vagas reais. Não é uma integração em produção.
+estágio, emprego e temporárias e validação de URLs. Ele está habilitado em
+`sources.json` por opção do responsável, com condições de uso pendentes. Não é
+uma integração em produção.
 
 A API `/api/jobs` e a interface HTML agora aceitam `kind=internship`,
 `kind=employment`, `kind=temporary` ou `kind=all`. Os anúncios de outras
@@ -135,7 +135,7 @@ por fonte. Falha de rede, 404 ou resposta inesperada não equivalem a zero vagas
 `source_quality.py` contém validação e diagnósticos. `listing_identity.py` fornece
 IDs estáveis com provedor/quadro/ID nativo e deduplicação conservadora de URLs.
 A deduplicação inicialmente era somente um módulo auxiliar; a versão 0.6 a integra à persistência, preservando os IDs já gravados.
-A integração brasileira experimental continua desativada por padrão.
+A integração brasileira Gupy está ativada experimentalmente; as demais fontes novas permanecem desativadas.
 
 A consulta pública permanece prioridade. Recursos personalizados de busca,
 currículos e candidaturas são planejamento futuro, com perfis privados isolados.

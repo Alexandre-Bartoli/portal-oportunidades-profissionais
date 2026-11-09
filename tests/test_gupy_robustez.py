@@ -12,6 +12,15 @@ def posting(number, **overrides):
 
 
 class GupyRobustezTests(unittest.TestCase):
+    def test_opt_in_allows_fetch_without_claiming_review(self):
+        from source_reviews import pending_technical_review, source_review
+        entry = {'provider':'gupy', 'slug':'estagio', 'enabled':True, 'experimental_access':True}
+        self.assertFalse(pending_technical_review(entry))
+        self.assertEqual(source_review(entry)['status'], 'pending')
+        self.assertTrue(source_review(entry)['technical_probe_allowed'])
+        entry['usage_review'] = 'rejected'
+        self.assertTrue(pending_technical_review(entry))
+
     def test_company_search_link_is_converted_to_direct_job_link(self):
         item = gupy.normalize_item(posting(123, jobUrl='https://empresa.gupy.io/job/abc?jobBoardSource=gupy_portal'), 'internship')
         self.assertEqual(item['url'], 'https://empresa.gupy.io/jobs/123')
