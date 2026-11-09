@@ -4,6 +4,7 @@ Inspirado na organização do job-pindorama (MIT), mas implementado em Python
 para o nosso sistema. Antes de ativar a coleta real, verificar condições de
 utilização e a disponibilidade documentada da rota do provedor.
 """
+import re
 from urllib.parse import urlencode, urljoin, urlparse
 
 ENDPOINT = 'https://portal.gupy.io/api/job-search/jobs'
@@ -65,6 +66,14 @@ def normalize_item(raw, requested_kind):
     url = safe_job_url(raw.get('jobUrl'))
     if not url:
         return None
+    parsed = urlparse(url)
+    company = (parsed.hostname or '').removesuffix('.gupy.io')
+    job_id = str(raw['id'])
+    if (parsed.path.startswith('/job/') and re.fullmatch(r'[0-9]+', job_id)
+            and re.fullmatch(r'[a-z0-9](?:[a-z0-9-]*[a-z0-9])?', company)
+            and company not in {'portal', 'login', 'api', 'www', 'attachments', 'suporte-candidatos', 'pravoce'}
+            and parsed.hostname == company + '.gupy.io'):
+        url = f'https://{company}.gupy.io/jobs/{job_id}'
     city = str(raw.get('city') or '').strip()
     state = str(raw.get('state') or '').strip()
     return {

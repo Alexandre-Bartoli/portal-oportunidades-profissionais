@@ -2,6 +2,8 @@
 
 Esta etapa adiciona adaptadores experimentais em Python e mantém as fontes novas desativadas. Os testes com respostas simuladas não comprovam disponibilidade, permissão de coleta ou direito de republicação.
 
+A busca da Gupy utiliza a mesma rota pública de pesquisa estudada no Job Pindorama, sem token. Quando o endereço retornado identifica com segurança uma página de empresa e o identificador numérico da vaga, o adaptador gera o endereço direto da vaga; caso contrário preserva o endereço válido retornado. A consulta continua desativada enquanto a revisão de uso estiver pendente.
+
 ## Resultado da investigação
 
 | Fonte | Preparação e limites | Situação |

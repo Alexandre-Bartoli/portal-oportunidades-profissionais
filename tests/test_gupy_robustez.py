@@ -12,6 +12,14 @@ def posting(number, **overrides):
 
 
 class GupyRobustezTests(unittest.TestCase):
+    def test_company_search_link_is_converted_to_direct_job_link(self):
+        item = gupy.normalize_item(posting(123, jobUrl='https://empresa.gupy.io/job/abc?jobBoardSource=gupy_portal'), 'internship')
+        self.assertEqual(item['url'], 'https://empresa.gupy.io/jobs/123')
+
+    def test_shared_portal_link_is_preserved_without_guessing_company(self):
+        item = gupy.normalize_item(posting(123, jobUrl='https://portal.gupy.io/job/abc'), 'internship')
+        self.assertEqual(item['url'], 'https://portal.gupy.io/job/abc')
+
     def test_pagination_respects_page_size_and_remains_partial(self):
         calls = []
         def fake(url):
