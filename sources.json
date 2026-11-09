@@ -27,23 +27,26 @@
     {
       "provider": "gupy",
       "slug": "estagio",
-      "enabled": false,
+      "enabled": true,
+      "experimental_access": true,
       "region": "BR",
-      "note": "Habilitar apenas após validação das condições de acesso e consulta real"
+      "note": "Consulta experimental ativada; revisão de uso pendente"
     },
     {
       "provider": "gupy",
       "slug": "emprego",
-      "enabled": false,
+      "enabled": true,
+      "experimental_access": true,
       "region": "BR",
-      "note": "Habilitar apenas após validação das condições de acesso e consulta real"
+      "note": "Consulta experimental ativada; revisão de uso pendente"
     },
     {
       "provider": "gupy",
       "slug": "temporario",
-      "enabled": false,
+      "enabled": true,
+      "experimental_access": true,
       "region": "BR",
-      "note": "Habilitar apenas após validação das condições de acesso e consulta real"
+      "note": "Consulta experimental ativada; revisão de uso pendente"
     },
     {
       "provider": "solides",

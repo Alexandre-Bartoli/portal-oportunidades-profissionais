@@ -10,6 +10,9 @@ REVIEW_REQUIRED_PROVIDERS = frozenset({'gupy','solides','remotive','workable'})
 
 
 def pending_technical_review(entry):
+    if (entry.get('provider') == 'gupy' and entry.get('experimental_access') is True
+            and entry.get('usage_review', 'pending') == 'pending'):
+        return False
     return entry['provider'] in REVIEW_REQUIRED_PROVIDERS and not source_review(entry)['technical_probe_allowed']
 
 
@@ -22,6 +25,9 @@ def source_review(entry):
         result['status'] = 'rejected'
         return result
     if status == 'pending':
+        if entry.get('provider') == 'gupy' and entry.get('experimental_access') is True:
+            result['technical_probe_allowed'] = True
+            result['experimental_access'] = True
         return result
     if status != 'approved':
         result['status'] = 'invalid_evidence'
