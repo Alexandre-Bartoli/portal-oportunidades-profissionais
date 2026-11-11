@@ -17,6 +17,13 @@ CONTRACTS = {
 }
 MODES = {'remote': 'remote', 'hybrid': 'hybrid', 'on-site': 'onsite'}
 
+def explicit_country(value):
+    if not isinstance(value,str): return None
+    country=value.strip()
+    if country.casefold() in ('brasil','brazil'): return 'BR'
+    if re.fullmatch(r'[A-Za-z]{2}',country): return country.upper()
+    return None
+
 
 class _NextData(HTMLParser):
     def __init__(self):
@@ -46,8 +53,7 @@ def enrich_detail(item, page):
     location = ', '.join(str(job[k]).strip() for k in ('addressCity','addressState') if isinstance(job.get(k),str) and job[k].strip())
     if location: result['location'] = location
     country = job.get('addressCountry')
-    if isinstance(country,str) and country.strip().casefold() in ('brasil','brazil','br'): result['country'] = 'BR'
-    elif isinstance(country,str) and re.fullmatch(r'[A-Za-z]{2}',country.strip()): result['country'] = country.strip().upper()
+    if explicit_country(country): result['country'] = explicit_country(country)
     return result
 
 
@@ -116,7 +122,7 @@ def normalize_item(raw, requested_kind):
         'company': str(raw.get('careerPageName') or ''),
         'description': str(raw.get('description') or ''),
         'location': ', '.join(v for v in (city, state) if v),
-        'country': None,
+        'country': explicit_country(raw.get('country')),
         'mode': MODES.get(raw.get('workplaceType'), 'unknown'),
         'kind': kind, 'url': url,
         'date': raw.get('publishedDate'),
@@ -147,8 +153,9 @@ def fetch(query, contract='internship', pages=1, get_json=None, limit=25, **filt
             for field, expected in (('offset', offset), ('limit', limit)):
                 if field in pagination and (type(pagination[field]) is not int or pagination[field] != expected):
                     raise ValueError('Paginação Gupy inconsistente')
+            # A Gupy pode limitar o total informado mesmo existindo páginas posteriores.
             if 'total' in pagination and (type(pagination['total']) is not int or
-                    pagination['total'] < 0 or (batch and pagination['total'] < offset+len(batch))):
+                    pagination['total'] < 0 or (offset == 0 and batch and pagination['total'] < len(batch))):
                 raise ValueError('Total Gupy inconsistente')
         raw_count += len(batch)
         for row in batch:

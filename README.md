@@ -88,6 +88,8 @@ Os adaptadores experimentais Gupy, Sólides, Workable e Remotive, os limites de 
 
 Adaptações do Radar de Vagas: leitura limitada de detalhes Gupy e conector experimental InHire por empresa. Não há empresa InHire configurada. As condições e limites constam na avaliação de fontes; o projeto de referência e sua licença MIT estão creditados nela.
 
+A Gupy consulta até cinco páginas de 25 anúncios por categoria e prioriza até três detalhes ainda não enriquecidos por coleta. A cobertura é parcial. Os filtros geográficos aceitam siglas ou nomes completos de estados com país confirmado como Brasil; nomes de cidades sozinhos não definem o país.
+
 ## Segurança e responsabilidade
 
 Este servidor liga somente em `127.0.0.1`; **não publique diretamente na Internet**. O painel tem autenticação básica para uso local, mas faltam HTTPS, controles de autenticação adequados à produção, revisão de licenciamento das fontes, testes de carga e gestão de dados pessoais. Nenhum dado real de candidatos deve ser incluído no repositório. As candidaturas devem ocorrer nas fontes oficiais.
