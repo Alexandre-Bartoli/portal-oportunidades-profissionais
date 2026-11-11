@@ -4,6 +4,8 @@ Esta etapa adiciona adaptadores experimentais em Python. A Gupy está ativada em
 
 A busca da Gupy utiliza a mesma rota pública de pesquisa estudada no Job Pindorama, sem token. Quando o endereço retornado identifica com segurança uma página de empresa e o identificador numérico da vaga, o adaptador gera o endereço direto da vaga; caso contrário preserva o endereço válido retornado. O campo experimental_access habilita a consulta sem registrar aprovação documental. Para interromper, desative as entradas Gupy em sources.json.
 
+As buscas adicionais por estado seguem o padrão de nome completo da UF e o tratamento de datas sem informação do [Job Pindorama](https://github.com/rosanapegasgodoy/job-pindorama), revisão `10c06ffd1a7ec7ef3e5deae77201e096a162c794`, sob licença MIT preservada em `docs/licencas_referencias/`. As consultas estaduais estão inicialmente ativadas para Minas Gerais. Cada categoria consulta até 25 anúncios e tenta até dez detalhes por coleta; o país continua dependente da informação explícita da fonte.
+
 ## Resultado da investigação
 
 | Fonte | Preparação e limites | Situação |

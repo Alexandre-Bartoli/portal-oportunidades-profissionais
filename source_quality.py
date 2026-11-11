@@ -37,8 +37,9 @@ def validate_sources(config):
             raise ValueError('Identificador do provedor inválido')
         if provider == 'inhire' and not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,78}[A-Za-z0-9])?',slug):
             raise ValueError('Identificador InHire inválido')
-        if provider == 'gupy' and slug not in {'estagio', 'emprego', 'temporario'}:
-            raise ValueError('Pesquisa Gupy não está entre as categorias permitidas')
+        if provider == 'gupy':
+            from gupy import source_parameters
+            source_parameters(slug)
         if provider == 'solides' and slug not in {'estagio', 'emprego', 'temporario'}:
             raise ValueError('Pesquisa Sólides não está entre as categorias permitidas')
         if provider == 'remotive' and slug != 'feed':

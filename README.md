@@ -90,6 +90,10 @@ Adaptações do Radar de Vagas: leitura limitada de detalhes Gupy e conector exp
 
 A Gupy consulta até cinco páginas de 25 anúncios por categoria e prioriza até três detalhes ainda não enriquecidos por coleta. A cobertura é parcial. Os filtros geográficos aceitam siglas ou nomes completos de estados com país confirmado como Brasil; nomes de cidades sozinhos não definem o país.
 
+Há também consultas experimentais específicas para Minas Gerais nas três categorias. Cada consulta estadual busca até 25 anúncios por coleta e tenta obter até dez detalhes, priorizando os ainda não enriquecidos. O filtro estadual só mostra vagas cuja localização e país possam ser confirmados. A configuração aceita outras UFs, mas inicialmente apenas Minas Gerais está ativada para essa consulta adicional.
+
+O filtro de data de publicação pode mostrar vagas dos últimos 7, 14, 30 ou 90 dias. Anúncios sem data de publicação continuam aparecendo, pois não é possível determinar sua idade. As buscas por UF e o tratamento de data foram adaptados das práticas do Job Pindorama, cuja licença está em `docs/licencas_referencias/`.
+
 A busca internacional inclui quadros públicos das empresas Cohere, Wealthsimple e Kaluza. Países informados por nome no campo de endereço são convertidos quando reconhecidos; regiões e países não reconhecidos permanecem sem classificação. Vagas remotas podem exigir residência ou autorização de trabalho no país indicado; verifique as condições no anúncio original.
 
 Na Gupy, anúncios repetidos e anúncios sem URL válida são contabilizados no diagnóstico e não impedem a importação dos demais. URLs fora dos domínios aceitos continuam excluídas. A resposta permanece parcial e não provoca desativação de vagas ausentes.
