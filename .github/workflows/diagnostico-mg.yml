@@ -1,0 +1,48 @@
+name: Diagnostico de Minas Gerais
+on: [push]
+permissions:
+  contents: read
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Analisar coleta e estado
+        env:
+          PORTAL_HTTP_TIMEOUT: '8'
+          PORTAL_HTTP_ATTEMPTS: '2'
+        run: |
+          python3 - <<'PY'
+          import json, sqlite3, tempfile, collections
+          from pathlib import Path
+          import homologacao, core, gupy
+          from geografia import catalog
+          with tempfile.TemporaryDirectory() as tmp:
+              db=Path(tmp)/'check.sqlite3'
+              r=homologacao.collect_staging(json.loads(Path('sources.json').read_text()),db_path=db,report_path=Path(tmp)/'r.json',min_sources=1)
+              print('COLETA',[(x['source'],x['status'],x.get('jobs')) for x in r['sources']])
+              with sqlite3.connect(db) as con:
+                  rows=con.execute("SELECT provider,source,country,location,geo_municipio,mode FROM jobs WHERE active=1 AND kind='employment'").fetchall()
+                  def is_mg(location):
+                      s=(location or '').casefold()
+                      return 'minas gerais' in s or ', mg' in s or '/mg' in s
+                  mg=[row for row in rows if is_mg(row[3])]
+                  print('EMPREGO_MG_MENCAO',len(mg),'detalhes',dict(collections.Counter((x[0],x[1],x[2],bool(x[4]),x[5]) for x in mg)))
+                  print('EMPREGO_MG_EXEMPLOS',[(x[0],x[2],x[3],x[4],x[5]) for x in mg[:10]])
+                  eligible=[x for x in rows if x[4] in catalog()[0] and catalog()[0][x[4]][2]=='MG']
+                  print('FILTRO_MG',len(eligible),'detalhes',dict(collections.Counter((x[0],x[1],x[2]) for x in eligible)))
+          for state in ('MG','Minas Gerais'):
+              try:
+                  payload=core.get_json(gupy.build_url('',contract='employment',state=state,limit=25,offset=0))
+                  rows=payload.get('data',[])
+                  print('BUSCA_GUPY',state,'total',len(rows),'estados',dict(collections.Counter(str(x.get('state')) for x in rows)),'paises',dict(collections.Counter(str(x.get('country')) for x in rows)))
+                  for row in rows[:2]:
+                      item=gupy.normalize_item(row,'employment')
+                      if item:
+                          try:
+                              detail=gupy.enrich_detail(item,core.get_gupy_detail(item['url']))
+                              print('DETALHE_GUPY',state,'local',detail.get('location'),'pais',detail.get('country'))
+                          except Exception as e: print('DETALHE_GUPY_ERRO',type(e).__name__)
+              except Exception as e: print('BUSCA_GUPY_ERRO',state,type(e).__name__,str(e)[:100])
+          PY
