@@ -1,0 +1,27 @@
+name: Verificar fontes internacionais
+on: [push]
+permissions:
+  contents: read
+jobs:
+  fontes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consultar dados publicos
+        run: |
+          python3 - <<'PY'
+          import urllib.request, json, collections
+          import core
+          for slug in ('cohere','juro','wealthsimple','kaluza'):
+              try:
+                  req=urllib.request.Request('https://api.ashbyhq.com/posting-api/job-board/'+slug,headers={'User-Agent':'Mozilla/5.0'})
+                  with urllib.request.urlopen(req,timeout=20) as r: jobs=json.load(r)['jobs']
+                  print('FONTE',slug,'total',len(jobs),'employmentTypes',dict(collections.Counter(str(j.get('employmentType')) for j in jobs)))
+                  print('FONTE',slug,'countries',dict(collections.Counter(str((j.get('address') or {}).get('postalAddress',{}).get('addressCountry')) for j in jobs)))
+                  print('FONTE',slug,'locations',dict(collections.Counter(str(j.get('location')) for j in jobs).most_common(8)))
+                  normalized=[core.make_job('ashby',slug,j) for j in jobs]
+                  print('FONTE',slug,'portal',dict(collections.Counter((str(j.get('country')),j.get('kind')) for j in normalized if j)))
+              except Exception as e:
+                  print('FONTE',slug,'erro',type(e).__name__,str(e)[:100])
+          PY
