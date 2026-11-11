@@ -5,6 +5,8 @@ para o nosso sistema. Antes de ativar a coleta real, verificar condições de
 utilização e a disponibilidade documentada da rota do provedor.
 """
 import re
+import json
+from html.parser import HTMLParser
 from urllib.parse import urlencode, urljoin, urlparse
 
 ENDPOINT = 'https://portal.gupy.io/api/job-search/jobs'
@@ -14,6 +16,39 @@ CONTRACTS = {
     'temporary': 'vacancy_type_temporary',
 }
 MODES = {'remote': 'remote', 'hybrid': 'hybrid', 'on-site': 'onsite'}
+
+
+class _NextData(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.active = False; self.parts = []
+    def handle_starttag(self, tag, attrs):
+        if tag == 'script' and dict(attrs).get('id') == '__NEXT_DATA__': self.active = True
+    def handle_endtag(self, tag):
+        if tag == 'script': self.active = False
+    def handle_data(self, data):
+        if self.active: self.parts.append(data)
+
+
+def enrich_detail(item, page):
+    """Lê o JSON da página pública; não infere país nem substitui identidade."""
+    if not isinstance(page, str) or len(page) > 10_000_000: raise ValueError('Página Gupy inválida')
+    parser = _NextData(); parser.feed(page)
+    try:
+        job = json.loads(''.join(parser.parts))['props']['pageProps']['job']
+        if not isinstance(job, dict) or str(job.get('id')) != str(item['id']): raise ValueError('Identidade divergente')
+        if not isinstance(job.get('description'), str) or not job['description'].strip(): raise ValueError('Descrição ausente')
+    except (ValueError, KeyError, TypeError):
+        raise ValueError('Detalhe Gupy inválido') from None
+    from core import clean
+    result = dict(item)
+    result['detail_enriched'] = True
+    result['description'] = '\n\n'.join(clean(job.get(k)) for k in ('description','responsibilities','prerequisites','relevantExperiences') if clean(job.get(k)))
+    location = ', '.join(str(job[k]).strip() for k in ('addressCity','addressState') if isinstance(job.get(k),str) and job[k].strip())
+    if location: result['location'] = location
+    country = job.get('addressCountry')
+    if isinstance(country,str) and country.strip().casefold() in ('brasil','brazil','br'): result['country'] = 'BR'
+    elif isinstance(country,str) and re.fullmatch(r'[A-Za-z]{2}',country.strip()): result['country'] = country.strip().upper()
+    return result
 
 
 def build_url(query, contract='internship', limit=25, offset=0, city='', state='', workplace=''):

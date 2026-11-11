@@ -97,6 +97,7 @@ def dashboard(staging=False):
                         'review': review_by_source[name]['status'],
                         'status': row.get('status'), 'checked_at': row.get('checked_at'),
                         'received': row.get('raw_count'), 'eligible': row.get('jobs'),
+                        'details_attempted':row.get('details_attempted'), 'details_succeeded':row.get('details_succeeded'),
                         'duplicates': row.get('duplicate_records'), 'reason': row.get('reason')})
     suggestions = _read_json(data_dir / 'fontes_sugeridas.json')
     candidates = suggestions.get('candidates') if suggestions else None
@@ -157,7 +158,7 @@ def render(report):
            'approved_access_only':'Acesso técnico revisado','approved_republication':'Republicação revisada'}
     entries = ''.join('<tr><td>'+e(x['source'])+'</td><td>'+('Sim' if x['enabled'] else 'Não')+
         '</td><td>'+e(names.get(x['status'],x['status']))+'</td><td>'+e(x['checked_at'])+'</td><td>'+e(x['received'])+
-        '</td><td>'+e(x['eligible'])+'</td><td>'+e(x['duplicates'])+'</td><td>'+e(x['reason'])+
+        '</td><td>'+e(x['eligible'])+'</td><td>'+e(x.get('details_succeeded'))+' / '+e(x.get('details_attempted'))+'</td><td>'+e(x['duplicates'])+'</td><td>'+e(x['reason'])+
         '</td><td>'+e(names.get(x['review'],x['review']))+'</td></tr>' for x in report['sources'])
     last, backup = report['last_collection'], report['backups']
     links = report['link_check']
@@ -196,7 +197,7 @@ def render(report):
         ' | Vagas ativas: '+e(last['active'])+'</p><h3>Histórico de execuções</h3>'+history_html+'</section>'
         '<section><h2>Fontes e verificações</h2><div class="table"><table><thead><tr><th>Fonte</th><th>Ativa</th>'
         '<th>Resultado</th><th>Verificação</th><th>Anúncios recebidos</th><th>Vagas elegíveis</th>'
-        '<th>Duplicados identificados</th><th>Motivo</th><th>Revisão de uso</th></tr></thead><tbody>'+entries+
+        '<th>Detalhes obtidos / tentados</th><th>Duplicados identificados</th><th>Motivo</th><th>Revisão de uso</th></tr></thead><tbody>'+entries+
         '</tbody></table></div><p>Revisão documental: '+e(report['review_status'])+
         '. Nenhuma fonte é ativada por este painel.</p></section>'
         '<section><h2>Operação</h2><p>Sugestões de fontes: '+e(report['suggestions_count'])+

@@ -68,7 +68,7 @@ class GeographyTests(unittest.TestCase):
 
     def test_geographic_migration_is_versioned(self):
         with core.connect() as db:
-            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 3)
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 4)
 
     def test_http_interface_and_api_apply_geographic_filters(self):
         import app
