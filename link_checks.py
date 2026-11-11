@@ -25,6 +25,7 @@ HOSTS = {
     'smartrecruiters': re.compile(r'^jobs\.smartrecruiters\.com$'),
     'breezy': re.compile(r'^[a-z0-9][a-z0-9-]*\.breezy\.hr$'),
     'gupy': re.compile(r'^[a-z0-9][a-z0-9-]*\.gupy\.io$'),
+    'inhire': re.compile(r'^[a-z0-9][a-z0-9-]*\.inhire\.app$'),
 }
 
 

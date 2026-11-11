@@ -6,7 +6,7 @@ from source_quality import validate_sources
 
 
 VALID_SCOPES = {'technical_access', 'republication'}
-REVIEW_REQUIRED_PROVIDERS = frozenset({'gupy','solides','remotive','workable'})
+REVIEW_REQUIRED_PROVIDERS = frozenset({'gupy','solides','remotive','workable','inhire'})
 
 
 def pending_technical_review(entry):

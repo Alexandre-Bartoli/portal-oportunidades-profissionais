@@ -4,6 +4,8 @@
 `experimental` indica que a coleta real ainda não foi validada para a plataforma.
 """
 CATALOG = [
+    {'provider': 'inhire', 'scope': 'companies', 'experimental': True,
+     'endpoint': 'api.inhire.app', 'configured_automatically': False},
     {'provider': 'greenhouse', 'scope': 'companies', 'experimental': True,
      'endpoint': 'boards-api.greenhouse.io', 'configured_automatically': False},
     {'provider': 'lever', 'scope': 'companies', 'experimental': True,

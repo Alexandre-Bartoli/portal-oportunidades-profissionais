@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy', 'solides', 'remotive', 'workable'})
+PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy', 'solides', 'remotive', 'workable', 'inhire'})
 CATEGORY = frozenset({'internship', 'employment', 'temporary'})
 
 
@@ -35,6 +35,8 @@ def validate_sources(config):
         seen.add(key)
         if provider in {'smartrecruiters','breezy'} and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}', slug):
             raise ValueError('Identificador do provedor inválido')
+        if provider == 'inhire' and not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,78}[A-Za-z0-9])?',slug):
+            raise ValueError('Identificador InHire inválido')
         if provider == 'gupy' and slug not in {'estagio', 'emprego', 'temporario'}:
             raise ValueError('Pesquisa Gupy não está entre as categorias permitidas')
         if provider == 'solides' and slug not in {'estagio', 'emprego', 'temporario'}:
@@ -86,11 +88,15 @@ def audit_result(provider, slug, items=None, error=None):
         state = 'no_match'
     else:
         state = 'empty' if not items else 'ok'
-    return {'source': f'{provider}/{slug}', 'status': state,
+    result = {'source': f'{provider}/{slug}', 'status': state,
             'reason': None, 'jobs': len(items), 'raw_count': raw_count,
             'complete': complete,
             'by_category': dict(Counter(j.get('kind', 'unknown') for j in items)),
             'checked_at': datetime.now(timezone.utc).isoformat()}
+    if hasattr(items, 'details_attempted'):
+        result['details_attempted'] = items.details_attempted
+        result['details_succeeded'] = items.details_succeeded
+    return result
 
 
 def audit_summary(results):

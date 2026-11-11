@@ -8,7 +8,7 @@ import re
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
-PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'smartrecruiters', 'breezy'})
+PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'smartrecruiters', 'breezy', 'inhire'})
 SAFE_SLUG = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
 
 
@@ -33,6 +33,8 @@ def detect(url):
         provider, slug = 'smartrecruiters', parts[0] if parts else ''
     elif re.fullmatch(r'[a-z0-9][a-z0-9-]*\.breezy\.hr', host):
         provider, slug = 'breezy', host.split('.')[0]
+    elif re.fullmatch(r'[a-z0-9][a-z0-9-]*\.inhire\.app', host):
+        provider, slug = 'inhire', host.split('.')[0]
     else:
         return None
     if not SAFE_SLUG.fullmatch(slug):
