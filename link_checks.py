@@ -26,6 +26,9 @@ HOSTS = {
     'breezy': re.compile(r'^[a-z0-9][a-z0-9-]*\.breezy\.hr$'),
     'gupy': re.compile(r'^[a-z0-9][a-z0-9-]*\.gupy\.io$'),
     'inhire': re.compile(r'^[a-z0-9][a-z0-9-]*\.inhire\.app$'),
+    'remotive': re.compile(r'^remotive\.com$'),
+    'workable': re.compile(r'^apply\.workable\.com$'),
+    'solides': re.compile(r'^(?:vagas\.solides\.com\.br|(?:[a-z0-9][a-z0-9-]*\.)?rhgestor\.com\.br)$'),
 }
 
 

@@ -1,4 +1,4 @@
-# Inclui verificacao de vagas internacionais e buscas de Minas Gerais.
+# Inclui verificacao de vagas, filtros e dominios de candidatura.
 name: Homologacao isolada das vagas
 on:
   workflow_dispatch:
@@ -40,6 +40,17 @@ jobs:
           for kind in ('employment', 'internship', 'temporary'):
               rows = core.query(kind=kind, region='brazil', uf='MG', limit=100)
               print('MINAS', kind, 'vagas até 100', len(rows))
+          PY
+      - name: Contar dominios de candidatura reconhecidos
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from collections import Counter
+          from link_checks import allowed_link
+          with sqlite3.connect('data/homologacao.sqlite3') as db:
+              rows = db.execute('SELECT provider,url FROM jobs WHERE active=1').fetchall()
+          totals = Counter('reconhecido' if allowed_link(provider, url) else 'nao_reconhecido' for provider, url in rows)
+          print('Domínios de candidatura:', dict(totals))
           PY
       - name: Diagnosticar persistencia temporaria e pendencias de fontes
         if: always()
