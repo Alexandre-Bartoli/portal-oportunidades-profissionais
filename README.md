@@ -2,11 +2,11 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
-> **Estado atual: prova de conceito (versão experimental 0.9).** A Gupy está habilitada experimentalmente, sem chave, e a revisão de uso continua pendente. A resposta pública de busca foi verificada no navegador; a coleta integrada neste ambiente ainda não foi comprovada. A homologação 0.8 gravou 7 vagas reais de outras fontes em banco temporário, mas não mantém um serviço público disponível. A pesquisa geográfica utiliza aproximação entre sedes municipais e possui cobertura parcial.
+> **Estado atual: prova de conceito (versão experimental 0.9).** A Gupy e duas empresas na InHire estão habilitadas experimentalmente, e a revisão de uso continua pendente. A coleta integrada foi verificada em homologação isolada, sem manter um serviço público disponível. A pesquisa geográfica utiliza aproximação entre sedes municipais e possui cobertura parcial.
 
 ## O que já funciona no código
 
-* Consulta a quadros de vagas Greenhouse, Lever e Ashby, além de Gupy experimental, configurados em `sources.json`. As demais fontes experimentais permanecem desabilitadas.
+* Consulta a quadros de vagas Greenhouse, Lever e Ashby, além de Gupy e InHire experimentais, configurados em `sources.json`. As demais fontes experimentais permanecem desabilitadas.
 * Tarefa de atualização periódica enquanto o servidor estiver executando (padrão de 6 horas).
 * Identificação heurística de possíveis estágios e agrupamento aproximado por área de conhecimento.
 * Armazenamento local SQLite e pesquisa textual por título, descrição e área.
@@ -17,7 +17,7 @@ Projeto experimental de pesquisa automática de oportunidades profissionais no B
 * Vagas coletadas deixam de ser exibidas após duas consultas bem sucedidas consecutivas em que desapareceram da fonte; falhas de rede não ocasionam desativação.
 * A API `/api/collection-status` informa a quantidade de fontes consultadas com sucesso e erro, vagas capturadas e registros ativos.
 
-**Não implementado:** comprovação da coleta real neste ambiente; coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação apropriada para produção; controle de curadoria; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
+**Não implementado:** coleta nacional abrangente de CIEE, IEL e Nube; validação jurídica de estágios; verificação definitiva de fraude; autenticação apropriada para produção; controle de curadoria; funcionamento em produção, escalabilidade e pesquisa personalizada de candidatos. A classificação de emprego e temporário é conservadora, não garante cobertura completa.
 
 ## Requisitos
 
@@ -74,17 +74,17 @@ docs/              Escopo e decisões técnicas
 
 Os módulos legados de importação foram preservados do protótipo, mas **a estratégia da primeira versão planejada é pesquisa automática**, sem importar vagas manualmente. Eles não constituem integração ativa com portais brasileiros.
 
-Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. O conector experimental Gupy mantém o país desconhecido, pois seu campo de estado não comprova o país. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A [pesquisa geográfica](docs/PESQUISA_GEOGRAFICA.md) usa coordenadas de sedes municipais do IBGE e exclui vagas que não puderem ser localizadas de forma conservadora.
+Para novas coletas, o país não é mais deduzido de nomes de cidades no campo de localização. O conector experimental Gupy mantém o país desconhecido quando ele não é informado explicitamente nos detalhes. Bancos anteriores podem conter países inferidos pela versão antiga, sem marca de proveniência; devem ser revisados antes de qualquer publicação, sem apagá-los automaticamente. A [pesquisa geográfica](docs/PESQUISA_GEOGRAFICA.md) usa coordenadas de sedes municipais do IBGE e exclui vagas que não puderem ser localizadas de forma conservadora.
 
 Os conectores experimentais SmartRecruiters e Breezy rejeitam alguns registros malformados; links Breezy fora do domínio esperado tornam o inventário parcial e não devem provocar desativação de vagas ausentes. Essas verificações não substituem testes de conexão real nem revisão de condições de uso.
 
-As consultas JSON centrais aceitam somente os domínios explícitos de Greenhouse, Lever, Ashby e Gupy, em HTTPS, sem credenciais ou portas não autorizadas. Redirecionamentos são recusados. Mudanças de domínio dos provedores podem interromper a coleta e exigem revisão; isso não substitui uma auditoria completa de segurança de rede.
+As consultas JSON centrais aceitam somente os domínios explícitos de Greenhouse, Lever, Ashby, Gupy e outros provedores explicitamente autorizados no código, em HTTPS, sem credenciais ou portas não autorizadas. Redirecionamentos são recusados. Mudanças de domínio dos provedores podem interromper a coleta e exigem revisão; isso não substitui uma auditoria completa de segurança de rede.
 
 ## Planejamento da versão 1.0
 
 O produto final terá escolha entre **estágio, emprego ou vagas temporárias**, seguida de **nacional, internacional ou ambos**. No Brasil, filtros de UF, município e distância máxima em quilômetros. A distância inicial será calculada em linha reta, quando existirem dados geográficos confiáveis. Veja [escopo funcional](docs/PLANEJAMENTO.md) e [roteiro de desenvolvimento](docs/ROADMAP.md).
 
-Os adaptadores experimentais Gupy, Sólides, Workable e Remotive, os limites de consulta, as condições de uso ainda pendentes e a revisão não destrutiva de duplicatas estão descritos em [avaliação de fontes](docs/AVALIACAO_FONTES_2026_11.md). As fontes novas não são ativadas automaticamente. A migração aditiva SQLite chega à versão 4; faça backup antes de atualizar.
+Os adaptadores experimentais Gupy, Sólides, Workable e Remotive, os limites de consulta, as condições de uso ainda pendentes e a revisão não destrutiva de duplicatas estão descritos em [avaliação de fontes](docs/AVALIACAO_FONTES_2026_11.md). Fontes adicionais dependem de configuração explícita. A migração aditiva SQLite chega à versão 4; faça backup antes de atualizar.
 
 Adaptações do Radar de Vagas: leitura limitada de detalhes Gupy e conector experimental InHire por empresa. As páginas da dti digital e da Movecta estão configuradas para consulta experimental, com revisão de uso pendente. A InHire consulta até 50 detalhes por empresa em cada coleta e informa cobertura parcial. O país é reconhecido como Brasil apenas quando a localização termina com o código BR. As condições e limites constam na avaliação de fontes; o projeto de referência e sua licença MIT estão creditados nela.
 
