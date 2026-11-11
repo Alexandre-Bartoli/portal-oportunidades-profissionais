@@ -1,3 +1,4 @@
+# Execução isolada de homologação
 name: Homologacao isolada das vagas
 on:
   workflow_dispatch:
