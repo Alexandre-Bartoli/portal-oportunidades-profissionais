@@ -97,8 +97,17 @@ class BuscaOnlineTests(unittest.TestCase):
             ident=self.manager.start(self.filters(uf='',region='international',country='CA'))
             self.manager.wait(ident,3)
         state=self.manager.status(ident)
-        results=core.query(kind='employment',only_ids=state['ids'])
+        results=core.query(kind='employment',only_ids=list(state['pending']))
         self.assertEqual([job['external_id'] for job in results],['new'])
+
+    def test_incomplete_location_is_pending_but_known_wrong_state_is_excluded(self):
+        from busca_online import _classify
+        base={'kind':'employment','country':'BR','mode':'onsite','title':'Analista','description':'','areas':[],'location':'','geo_municipio':None}
+        self.assertIn('Localização insuficiente para confirmar a região',_classify(base,self.filters()))
+        other={**base,'location':'São Paulo, SP','geo_municipio':'3550308'}
+        self.assertIsNone(_classify(other,self.filters()))
+        unknown={**base,'mode':'unknown'}
+        self.assertIn('Modalidade não informada',_classify(unknown,self.filters(mode='remote')))
 
     def test_search_resolves_existing_duplicate_to_persisted_identity(self):
         raw={'id':'77','title':'Analista','kind':'employment','country':'BR',

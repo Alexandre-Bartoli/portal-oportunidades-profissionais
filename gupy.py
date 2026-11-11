@@ -157,6 +157,7 @@ def fetch(query, contract='internship', pages=1, get_json=None, limit=25, **filt
         raise ValueError('Limite de páginas inválido')
     result = []
     raw_count = 0
+    pages_fetched = 0
     duplicate_items = 0
     skipped_invalid_url = 0
     seen = set()
@@ -166,6 +167,7 @@ def fetch(query, contract='internship', pages=1, get_json=None, limit=25, **filt
         if not isinstance(payload, dict) or not isinstance(payload.get('data'), list):
             raise ValueError('Resposta inesperada da Gupy')
         batch = payload['data']
+        pages_fetched += 1
         if len(batch) > limit:
             raise ValueError('Página Gupy excede o limite solicitado')
         pagination = payload.get('pagination')
@@ -198,6 +200,8 @@ def fetch(query, contract='internship', pages=1, get_json=None, limit=25, **filt
     from providers_extra import ListingBatch
     # A consulta usa filtros e pode cobrir apenas uma fração do catálogo.
     batch = ListingBatch(result, complete=False, raw_count=raw_count)
+    batch.pages_fetched = pages_fetched
+    batch.page_limit = pages
     batch.duplicate_items = duplicate_items
     batch.skipped_invalid_url = skipped_invalid_url
     return batch

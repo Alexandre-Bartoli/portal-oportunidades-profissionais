@@ -232,6 +232,7 @@ def fetch_source(provider,slug, *, detail_limit=None, query_text='', city='', wo
   batch=ListingBatch([job for raw in raws if (job:=make_job(provider,slug,raw)) is not None],
                       complete=False, raw_count=getattr(raws, 'raw_count', None))
   batch.details_attempted=len(selected);batch.details_succeeded=detail_ok
+  batch.pages_fetched=raws.pages_fetched;batch.page_limit=raws.page_limit
   batch.duplicate_items=raws.duplicate_items;batch.skipped_invalid_url=raws.skipped_invalid_url
   return batch
  if provider in ('smartrecruiters','breezy'):

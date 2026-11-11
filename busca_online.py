@@ -94,6 +94,29 @@ def _matches(job, filters):
     return True
 
 
+def _classify(job, filters):
+    relaxed=dict(filters, country='',region='',uf='',municipality='',radius_km='',mode='')
+    if not _matches(job,relaxed):return None
+    country=job.get('country') or ''
+    wanted=filters.get('country','');region=filters.get('region','');uf=filters.get('uf','')
+    if country and ((wanted and country!=wanted) or (region=='brazil' and country!='BR') or
+                    (region=='international' and country=='BR') or (uf and country!='BR')):return None
+    mode=job.get('mode') or 'unknown';requested=filters.get('mode','')
+    if requested and mode!='unknown' and mode!=requested:return None
+    if requested=='unknown' and mode!='unknown':return None
+    missing=[]
+    if not country:missing.append('País não confirmado')
+    if mode=='unknown':missing.append('Modalidade não informada')
+    cities=catalog()[0];code=job.get('geo_municipio')
+    if uf and code in cities:
+        city=filters.get('municipality','');radius=filters.get('radius_km','')
+        if radius and distance_km(city,code)>float(radius):return None
+        if not radius and city and code!=city:return None
+        if not city and cities[code][2]!=uf:return None
+    if not job.get('location') or (uf and code not in cities):missing.append('Localização insuficiente para confirmar a região')
+    return missing
+
+
 class SearchManager:
     def __init__(self):
         self.lock=threading.Lock();self.jobs={};self.threads={}
@@ -106,7 +129,7 @@ class SearchManager:
             self.jobs.clear();self.threads.clear()
             ident=secrets.token_urlsafe(24)
             self.jobs[ident]={'status':'running','total':len(tasks),'done':0,'failed':0,'details_failed':0,'saved':0,'ids':[],
-                              'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters),'sources':[]}
+                              'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters),'sources':[],'pending':{}}
             worker=threading.Thread(target=self._run,args=(ident,tasks,dict(filters)),daemon=True)
             self.threads[ident]=worker;worker.start()
         return ident
@@ -122,16 +145,22 @@ class SearchManager:
                 rows=core.fetch_source(provider,slug,**options,**extra)
                 detail_failed=max(0,getattr(rows,'details_attempted',0)-getattr(rows,'details_succeeded',0))
                 with self.lock:self.jobs[ident]['details_failed']+=detail_failed
-                matched=[job for job in rows if _matches(job,filters)]
-                core.save(matched)
-                external_ids=[str(job['external_id']) for job in matched]
+                classified=[(job,_classify(job,filters)) for job in rows]
+                accepted=[(job,missing) for job,missing in classified if missing is not None]
+                core.save([job for job,_ in accepted])
+                external_ids=[str(job['external_id']) for job,_ in accepted]
                 with core.connect() as db:
-                    ids=[row[0] for row in db.execute('SELECT DISTINCT job_id FROM job_aliases WHERE provider=? AND source=? AND external_id IN (SELECT value FROM json_each(?))',
-                         (provider,slug,json.dumps(external_ids))).fetchall()]
+                    aliases=dict(db.execute('SELECT external_id,job_id FROM job_aliases WHERE provider=? AND source=? AND external_id IN (SELECT value FROM json_each(?))',
+                         (provider,slug,json.dumps(external_ids))).fetchall())
+                ids={aliases[str(job['external_id'])] for job,missing in accepted if not missing and str(job['external_id']) in aliases}
                 with self.lock:
                     self.jobs[ident]['ids']=sorted(set(self.jobs[ident]['ids'])|set(ids))
+                    for job,missing in accepted:
+                        job_id=aliases.get(str(job['external_id']))
+                        if job_id and missing and job_id not in self.jobs[ident]['ids']:self.jobs[ident]['pending'][job_id]=missing
+                    for job_id in self.jobs[ident]['ids']:self.jobs[ident]['pending'].pop(job_id,None)
                     self.jobs[ident]['saved']=len(self.jobs[ident]['ids'])
-                result.update(status='partial' if not getattr(rows,'complete',True) or detail_failed else 'ok',matched=len(ids))
+                result.update(status='partial' if not getattr(rows,'complete',True) or detail_failed else 'ok',matched=len(ids),pages=getattr(rows,'pages_fetched',None),page_limit=getattr(rows,'page_limit',None))
             except Exception as exc:
                 LOG.warning('Falha na consulta %s/%s: %s',provider,slug,type(exc).__name__)
                 with self.lock:self.jobs[ident]['failed']+=1
