@@ -87,6 +87,27 @@
       "experimental_access": true,
       "region": "BR",
       "note": "Consulta experimental ativada; revisão de uso pendente"
+    },
+    {
+      "provider": "ashby",
+      "slug": "cohere",
+      "enabled": true,
+      "region": "international",
+      "note": "Fonte internacional com vagas por país; elegibilidade depende do anúncio"
+    },
+    {
+      "provider": "ashby",
+      "slug": "wealthsimple",
+      "enabled": true,
+      "region": "international",
+      "note": "Fonte internacional com vagas por país; elegibilidade depende do anúncio"
+    },
+    {
+      "provider": "ashby",
+      "slug": "kaluza",
+      "enabled": true,
+      "region": "international",
+      "note": "Fonte internacional com vagas por país; elegibilidade depende do anúncio"
     }
   ]
 }
