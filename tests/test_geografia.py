@@ -96,3 +96,32 @@ class GeographyTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(base + '/api/jobs?uf=XX')
         self.assertEqual(error.exception.code, 400)
+
+    def test_radius_without_city_keeps_form_and_explains_how_to_continue(self):
+        import app
+        import json
+        import threading
+        import urllib.request
+        import urllib.error
+        from http.server import ThreadingHTTPServer
+        server = ThreadingHTTPServer(('127.0.0.1',0), app.Handler)
+        thread = threading.Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        self.addCleanup(thread.join,3)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        base='http://127.0.0.1:'+str(server.server_port)
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(base+'/?kind=employment&uf=MG&radius_km=50')
+        self.assertEqual(error.exception.code,400)
+        page=error.exception.read().decode('utf-8')
+        self.assertIn('Selecione um município', page)
+        self.assertIn('Barbacena',page)
+        self.assertIn('value="MG" selected',page)
+        self.assertIn('value="50"',page)
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(base+'/api/jobs?uf=MG&radius_km=50')
+        self.assertIn('município',json.load(error.exception)['error'])
+        with urllib.request.urlopen(base+'/api/jobs?kind=all&uf=MG&municipality=3105608&radius_km=50') as response:
+            result=json.load(response)
+        self.assertEqual([item['external_id'] for item in result['results']], ['1'])

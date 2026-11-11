@@ -10,6 +10,10 @@ from automatico import collect_once, start_scheduler, status as collection_statu
 from signals import analyze
 
 STAGING_MODE = False
+RADIUS_MESSAGES = frozenset({'Selecione um município para usar o raio de distância.', 'Informe um raio entre 0 e 2000 km.'})
+
+def filter_message(error):
+ return str(error) if str(error) in RADIUS_MESSAGES else 'Confira os filtros e tente novamente.'
 
 class Handler(BaseHTTPRequestHandler):
  def response(self,body,content_type='application/json',status=200):
@@ -58,7 +62,7 @@ class Handler(BaseHTTPRequestHandler):
                  uf=p.get('uf',[''])[0],municipality=p.get('municipality',[''])[0],radius_km=p.get('radius_km',[''])[0],published_days=p.get('published_days',[''])[0])
     for item in result:item['signals']=analyze(item['title'],item['description'],item['mode'])
     return self.response(json.dumps({'count':len(result),'results':result},ensure_ascii=False))
-   except ValueError:return self.response('{"error":"Parâmetro inválido"}',status=400)
+   except ValueError as error:return self.response(json.dumps({'error':filter_message(error)},ensure_ascii=False),status=400)
   if u.path=='/vaga':
    from core import job_details
    from listing_identity import canonical_url
@@ -75,10 +79,12 @@ class Handler(BaseHTTPRequestHandler):
   if kind not in ('internship','employment','temporary','all'):kind='internship'
   region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
   uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0];published_days=p.get('published_days',[''])[0]
+  error_message=''
   try:
    offset=int(p.get('offset',[0])[0])
    records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset,uf=uf,municipality=municipality,radius_km=radius,published_days=published_days)
-  except ValueError:return self.response('Filtro inválido','text/plain',400)
+  except ValueError as error:
+   error_message=filter_message(error);records=[];offset=0
   has_more=len(records)>30;records=records[:30]
   from core import AREAS
   from geografia import municipalities
@@ -92,8 +98,8 @@ class Handler(BaseHTTPRequestHandler):
    if (label=='Página anterior' and offset>0) or (label=='Próxima página' and has_more and target<=10000):
     params={**filters,'offset':target}
     navigation.append(('/?'+urllib.parse.urlencode(params),label))
-  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json())
-  self.response(page,'text/html')
+  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json(),error_message=error_message)
+  self.response(page,'text/html',status=400 if error_message else 200)
 
 def main():
  cmd=sys.argv[1] if len(sys.argv)>1 else 'help'
