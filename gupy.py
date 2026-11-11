@@ -137,6 +137,8 @@ def fetch(query, contract='internship', pages=1, get_json=None, limit=25, **filt
         raise ValueError('Limite de páginas inválido')
     result = []
     raw_count = 0
+    duplicate_items = 0
+    skipped_invalid_url = 0
     seen = set()
     for page in range(pages):
         offset = page * limit
@@ -161,17 +163,21 @@ def fetch(query, contract='internship', pages=1, get_json=None, limit=25, **filt
         for row in batch:
             if not isinstance(row, dict) or not row.get('id') or not row.get('name'):
                 raise ValueError('Anúncio Gupy malformado')
-            ident = str(row['id'])
-            if ident in seen:
-                raise ValueError('Anúncio repetido entre páginas Gupy')
-            seen.add(ident)
             item = normalize_item(row, contract)
             if item is None and row.get('type') == CONTRACTS[contract]:
-                raise ValueError('Anúncio Gupy compatível sem URL válida')
+                skipped_invalid_url += 1
             if item is not None:
+                ident = str(row['id'])
+                if ident in seen:
+                    duplicate_items += 1
+                    continue
+                seen.add(ident)
                 result.append(item)
         if len(batch) < limit:
             break
     from providers_extra import ListingBatch
     # A consulta usa filtros e pode cobrir apenas uma fração do catálogo.
-    return ListingBatch(result, complete=False, raw_count=raw_count)
+    batch = ListingBatch(result, complete=False, raw_count=raw_count)
+    batch.duplicate_items = duplicate_items
+    batch.skipped_invalid_url = skipped_invalid_url
+    return batch

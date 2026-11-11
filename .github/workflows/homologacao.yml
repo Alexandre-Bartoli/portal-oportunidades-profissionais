@@ -1,4 +1,4 @@
-# Inclui verificacao das fontes InHire e filtros geograficos.
+# Inclui verificacao das fontes InHire e coleta parcial da Gupy.
 name: Homologacao isolada das vagas
 on:
   workflow_dispatch:

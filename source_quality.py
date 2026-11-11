@@ -96,6 +96,9 @@ def audit_result(provider, slug, items=None, error=None):
     if hasattr(items, 'details_attempted'):
         result['details_attempted'] = items.details_attempted
         result['details_succeeded'] = items.details_succeeded
+    for field in ('duplicate_items', 'skipped_invalid_url'):
+        if hasattr(items, field):
+            result[field] = getattr(items, field)
     return result
 
 
