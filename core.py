@@ -411,8 +411,10 @@ def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, regi
  if uf and uf not in states:raise ValueError('Estado inválido')
  if municipality and (not uf or municipality not in cities or cities[municipality][2]!=uf):raise ValueError('Município inválido')
  if radius_km not in (None,''):
-  radius_km=float(radius_km)
-  if not municipality or not math.isfinite(radius_km) or not 0<=radius_km<=2000:raise ValueError('Raio inválido')
+  if not municipality:raise ValueError('Selecione um município para usar o raio de distância.')
+  try:radius_km=float(radius_km)
+  except (TypeError, ValueError):raise ValueError('Informe um raio entre 0 e 2000 km.') from None
+  if not math.isfinite(radius_km) or not 0<=radius_km<=2000:raise ValueError('Informe um raio entre 0 e 2000 km.')
  else:radius_km=None
  if region not in ('','brazil','international'):raise ValueError('Região inválida')
  if mode not in ('','remote','onsite','hybrid','unknown'):raise ValueError('Modalidade inválida')
