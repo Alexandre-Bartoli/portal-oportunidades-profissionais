@@ -210,6 +210,7 @@ def fetch_source(provider,slug):
   batch=ListingBatch([job for raw in raws if (job:=make_job(provider,slug,raw)) is not None],
                       complete=False, raw_count=getattr(raws, 'raw_count', None))
   batch.details_attempted=len(selected);batch.details_succeeded=detail_ok
+  batch.duplicate_items=raws.duplicate_items;batch.skipped_invalid_url=raws.skipped_invalid_url
   return batch
  if provider in ('smartrecruiters','breezy'):
   from providers_extra import smartrecruiters, breezy

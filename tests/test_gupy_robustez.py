@@ -41,10 +41,43 @@ class GupyRobustezTests(unittest.TestCase):
         self.assertEqual(result.raw_count, 3)
         self.assertFalse(result.complete)
 
-    def test_repeated_page_is_rejected(self):
-        with self.assertRaises(ValueError):
-            gupy.fetch('estágio', pages=2, limit=1,
-                       get_json=lambda _: {'data':[posting(1)]})
+    def test_repeated_items_are_counted_once_and_other_jobs_preserved(self):
+        pages = iter([[posting(1), posting(2)], [posting(2), posting(3)]])
+        jobs = gupy.fetch('estágio', pages=2, limit=2,
+                          get_json=lambda _: {'data': next(pages)})
+        self.assertEqual([j['id'] for j in jobs], ['1', '2', '3'])
+        self.assertEqual(jobs.duplicate_items, 1)
+        self.assertFalse(jobs.complete)
+
+    def test_unsafe_url_is_counted_and_other_jobs_preserved(self):
+        jobs = gupy.fetch('estágio', get_json=lambda _: {'data': [posting(1),
+                          posting(2, jobUrl='https://vaga-ja.com/anuncio'), posting(3)]})
+        self.assertEqual([j['id'] for j in jobs], ['1', '3'])
+        self.assertEqual(jobs.skipped_invalid_url, 1)
+        self.assertFalse(jobs.complete)
+
+    def test_valid_repeated_item_after_invalid_url_is_not_lost(self):
+        jobs = gupy.fetch('estágio', get_json=lambda _: {'data': [
+            posting(1, jobUrl='https://vaga-ja.com/anuncio'), posting(1)]})
+        self.assertEqual([job['id'] for job in jobs], ['1'])
+        self.assertEqual(jobs.skipped_invalid_url, 1)
+
+    def test_counts_are_included_in_collection_audit(self):
+        from source_quality import audit_result
+        jobs = gupy.fetch('estágio', get_json=lambda _: {'data': [posting(1, jobUrl='')]})
+        audit = audit_result('gupy', 'estagio', jobs)
+        self.assertEqual(audit['skipped_invalid_url'], 1)
+        self.assertEqual(audit['duplicate_items'], 0)
+        self.assertEqual(audit['status'], 'partial')
+
+    def test_counts_survive_portal_normalization(self):
+        from unittest.mock import patch
+        import core
+        from source_quality import audit_result
+        response = {'data': [posting(1), posting(2, jobUrl='')]}
+        with patch('core.get_json', return_value=response), patch('core.get_gupy_detail', side_effect=ValueError):
+            jobs = core.fetch_source('gupy', 'estagio')
+        self.assertEqual(audit_result('gupy', 'estagio', jobs)['skipped_invalid_url'], 1)
 
     def test_inconsistent_pagination_metadata_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -55,7 +88,7 @@ class GupyRobustezTests(unittest.TestCase):
                 'data':[posting(1)], 'pagination':{'offset':0,'limit':2,'total':0}})
 
     def test_malformed_rows_do_not_disappear_silently(self):
-        for row in (None, {'id':1}, posting(1, jobUrl='')):
+        for row in (None, {'id':1}):
             with self.subTest(row=row), self.assertRaises(ValueError):
                 gupy.fetch('estágio', get_json=lambda _: {'data':[row]})
 
