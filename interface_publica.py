@@ -43,7 +43,7 @@ def render_detail(item, link, link_label, flags):
     facts=''.join('<div aria-label="'+esc(label)+': '+value(data)+'"><span>'+esc(label)+'</span><strong>'+value(data)+'</strong></div>' for label,data in details)
     notice='EXEMPLO FICTÍCIO' if item.get('demo') else 'Dados coletados automaticamente, sujeitos a revisão.'
     warning=('<section class="detail-warning"><h2>Sinais para conferir</h2><p>São indícios automáticos, não conclusões. Confira no anúncio original.</p><ul>'+''.join('<li>'+esc(labels.get(f['type'],f['type']))+': '+esc(f['evidence'])+'</li>' for f in flags)+'</ul></section>') if flags else ''
-    action='<a class="detail-action" rel="noopener noreferrer" href="'+esc(link)+'">'+esc(link_label)+' ↗</a>' if link else '<p>Link não confirmado.</p>'
+    action='<a class="detail-action" rel="noopener noreferrer" href="'+esc(link)+'">'+esc(link_label)+' ↗</a>' if link else '<p>Link não confirmado. Consulte o site oficial da fonte para verificar a oportunidade.</p>'
     return shell_start(item['title'])+'<main class="wrap detail-wrap"><a class="back-link" href="/">← Voltar à pesquisa</a><article class="detail-box"><span class="section-kicker">Detalhes da oportunidade</span><h1>'+value(item['title'])+'</h1><p class="detail-notice">'+notice+'</p><div class="detail-info">'+facts+'</div><h2>Sobre a vaga</h2><div class="detail-description">'+value(item.get('description'))+'</div>'+warning+action+'<p class="detail-notice">Última verificação na coleta: '+value(item.get('last_seen'))+'</p></article></main>'+footer()
 
 

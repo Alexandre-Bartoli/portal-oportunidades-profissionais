@@ -2,8 +2,10 @@
 import json
 import logging
 import os
+import tempfile
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from core import BASE, fetch_source, save, init, mark_missing, stats, connect
 from source_quality import validate_sources, audit_result, audit_summary
 from discover_sources import from_database
@@ -11,6 +13,24 @@ from source_reviews import pending_technical_review
 
 LOG = logging.getLogger('coleta')
 STATE = BASE / 'data' / 'ultima_coleta.json'
+
+
+def _write_private_json(path, value):
+    """Substitui o destino sem seguir links simbólicos, usando arquivo temporário privado."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if path.parent.is_symlink():
+        raise ValueError('Diretório de dados não pode ser link simbólico')
+    if os.name == 'posix':
+        path.parent.chmod(0o700)
+    fd, name = tempfile.mkstemp(prefix='.portal-', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            json.dump(value, stream, ensure_ascii=False, indent=2)
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
 
 
 def collect_once():
@@ -58,10 +78,7 @@ def collect_once():
         candidates = from_database(db, configured=config['sources'])
     candidates_path = BASE / 'data' / 'fontes_sugeridas.json'
     candidates_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_candidates = candidates_path.with_suffix('.tmp')
-    temp_candidates.write_text(json.dumps({'candidates': candidates},
-        ensure_ascii=False, indent=2), encoding='utf-8')
-    temp_candidates.replace(candidates_path)
+    _write_private_json(candidates_path, {'candidates': candidates})
     state = {'suggested_sources': len(candidates), 'finished_at': datetime.now(timezone.utc).isoformat(),
              'collected': count, 'successful_sources': successful,
              'failed_sources': failed, 'real_jobs_active': stats().get(1, 0),
@@ -74,7 +91,7 @@ def collect_once():
         LOG.exception('Não foi possível registrar o histórico da coleta')
         state['history_error'] = True
     STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
+    _write_private_json(STATE, state)
     return state
 
 

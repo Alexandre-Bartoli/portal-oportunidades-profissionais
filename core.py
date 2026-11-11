@@ -1,5 +1,6 @@
 import hashlib
 import os
+import stat
 from contextlib import contextmanager
 import html
 import json
@@ -263,7 +264,15 @@ def fetch_source(provider,slug):
 
 @contextmanager
 def connect():
- DB.parent.mkdir(parents=True,exist_ok=True)
+ if DB.parent.is_symlink():raise ValueError('Diretório do banco não pode ser link simbólico')
+ DB.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+ if os.name=='posix':os.chmod(DB.parent,0o700)
+ if DB.is_symlink():raise ValueError('Banco não pode ser link simbólico')
+ fd=os.open(DB,os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
+ try:
+  if not stat.S_ISREG(os.fstat(fd).st_mode):raise ValueError('Arquivo de banco inválido')
+  if os.name=='posix':os.fchmod(fd,0o600)
+ finally:os.close(fd)
  db=sqlite3.connect(DB)
  try:
   db.execute('PRAGMA foreign_keys=ON')

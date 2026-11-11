@@ -15,6 +15,15 @@ RADIUS_MESSAGES = frozenset({'Selecione um município para usar o raio de distâ
 def filter_message(error):
  return str(error) if str(error) in RADIUS_MESSAGES else 'Confira os filtros e tente novamente.'
 
+def local_host_allowed(handler):
+ hosts=handler.headers.get_all('Host',[])
+ if len(hosts)!=1:return False
+ try:
+  parsed=urllib.parse.urlsplit('//'+hosts[0])
+  return (parsed.hostname in {'127.0.0.1','localhost','::1'} and parsed.port==handler.server.server_port
+          and parsed.username is None and parsed.password is None and not parsed.path and not parsed.query and not parsed.fragment)
+ except ValueError:return False
+
 class Handler(BaseHTTPRequestHandler):
  def response(self,body,content_type='application/json',status=200):
   payload=body.encode('utf-8');self.send_response(status)
@@ -28,6 +37,7 @@ class Handler(BaseHTTPRequestHandler):
   if status==429:self.send_header('Retry-After','60')
   self.end_headers();self.wfile.write(payload)
  def do_GET(self):
+  if not local_host_allowed(self):return self.response('Origem de acesso inválida','text/plain',403)
   u=urllib.parse.urlparse(self.path);p=urllib.parse.parse_qs(u.query)
   if u.path in ('/admin','/api/admin','/api/collection-status','/api/staging-status'):
    import admin
@@ -60,16 +70,20 @@ class Handler(BaseHTTPRequestHandler):
     result=query(q=p.get('q',[''])[0][:100],country=p.get('country',[''])[0][:3],kind='' if kind=='all' else kind,limit=p.get('limit',[30])[0],exclude_demo=STAGING_MODE,
                  region=p.get('region',[''])[0],mode=p.get('mode',[''])[0],area=p.get('area',[''])[0],offset=p.get('offset',[0])[0],
                  uf=p.get('uf',[''])[0],municipality=p.get('municipality',[''])[0],radius_km=p.get('radius_km',[''])[0],published_days=p.get('published_days',[''])[0])
-    for item in result:item['signals']=analyze(item['title'],item['description'],item['mode'])
+    from link_checks import allowed_link
+    for item in result:
+     item['signals']=analyze(item['title'],item['description'],item['mode'])
+     item['link_permitido']=allowed_link(item.get('provider'),item.get('url'))
+     if not item['link_permitido']:item['url']=None
     return self.response(json.dumps({'count':len(result),'results':result},ensure_ascii=False))
    except ValueError as error:return self.response(json.dumps({'error':filter_message(error)},ensure_ascii=False),status=400)
   if u.path=='/vaga':
    from core import job_details
-   from listing_identity import canonical_url
+   from link_checks import allowed_link
    item=job_details(p.get('id',[''])[0][:128],exclude_demo=STAGING_MODE)
    if not item:return self.response('Vaga não encontrada','text/plain',404)
    from interface_publica import render_detail
-   link=item.get('url') if canonical_url(item.get('url')) else None
+   link=item.get('url') if allowed_link(item.get('provider'),item.get('url')) else None
    link_label='Consultar anúncio na Remotive' if item['provider']=='remotive' else 'Consultar anúncio na fonte'
    flags=analyze(item['title'],item['description'],item['mode'])
    return self.response(render_detail(item,link,link_label,flags),'text/html')
