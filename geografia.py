@@ -8,6 +8,16 @@ from pathlib import Path
 
 DATA = Path(__file__).resolve().parent / 'data_geo'
 
+STATE_NAMES = {
+    'acre':'AC', 'alagoas':'AL', 'amapa':'AP', 'amazonas':'AM', 'bahia':'BA',
+    'ceara':'CE', 'distrito federal':'DF', 'espirito santo':'ES', 'goias':'GO',
+    'maranhao':'MA', 'mato grosso':'MT', 'mato grosso do sul':'MS', 'minas gerais':'MG',
+    'para':'PA', 'paraiba':'PB', 'parana':'PR', 'pernambuco':'PE', 'piaui':'PI',
+    'rio de janeiro':'RJ', 'rio grande do norte':'RN', 'rio grande do sul':'RS',
+    'rondonia':'RO', 'roraima':'RR', 'santa catarina':'SC', 'sao paulo':'SP',
+    'sergipe':'SE', 'tocantins':'TO',
+}
+
 
 def _key(value):
     return ''.join(c for c in unicodedata.normalize('NFKD', value.casefold())
@@ -35,10 +45,12 @@ def municipalities(uf=''):
 def locate(location, country):
     if country != 'BR' or not isinstance(location, str):
         return None
-    match = re.fullmatch(r'\s*([^,;/]+),\s*([A-Za-z]{2})(?:,\s*(?:Brasil|Brazil))?\s*', location, re.I)
+    match = re.fullmatch(r'\s*([^,;/]+),\s*([^,;/]+?)(?:,\s*(?:Brasil|Brazil))?\s*', location, re.I)
     if not match:
         return None
-    matches = catalog()[1].get((_key(match.group(1)), match.group(2).upper()), [])
+    state = match.group(2).strip()
+    uf = STATE_NAMES.get(_key(state), state.upper() if re.fullmatch(r'[A-Za-z]{2}',state) else '')
+    matches = catalog()[1].get((_key(match.group(1)), uf), [])
     return matches[0] if len(matches) == 1 else None
 
 

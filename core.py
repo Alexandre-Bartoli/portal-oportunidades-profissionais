@@ -160,6 +160,20 @@ def get_gupy_detail(url):
   if len(body)>10_000_000: raise ValueError('Página Gupy excede o limite')
   return body.decode('utf-8')
 
+def select_gupy_details(slug, raws, limit=3):
+ """Prioriza anúncios ainda sem detalhe, sem alterar banco durante a consulta."""
+ enriched=set()
+ if DB.is_file():
+  try:
+   with sqlite3.connect(DB.resolve().as_uri()+'?mode=ro',uri=True) as db:
+    enriched={str(r[0]) for r in db.execute('''SELECT a.external_id FROM job_aliases a
+     JOIN jobs j ON j.id=a.job_id WHERE a.provider=? AND a.source=? AND j.detail_enriched=1''',('gupy',slug))}
+  except sqlite3.Error:
+   enriched=set()
+ new=[r for r in raws if r['id'] not in enriched]
+ old=[r for r in raws if r['id'] in enriched]
+ return (new+old)[:limit]
+
 def fetch_source(provider,slug):
  encoded=urllib.parse.quote(slug,safe='')
  if provider=='inhire':
@@ -183,17 +197,19 @@ def fetch_source(provider,slug):
   terms={'estagio':'internship','emprego':'employment','temporario':'temporary'}
   if slug not in terms:raise ValueError('Consulta Gupy não autorizada na configuração')
   from providers_extra import ListingBatch
-  raws=fetch({'estagio':'estágio','emprego':'','temporario':'temporário'}[slug],contract=terms[slug],get_json=get_json)
+  raws=fetch('',contract=terms[slug],pages=5,limit=25,get_json=get_json)
   # Detalhes limitados por rodada. Falhas individuais preservam a listagem.
   detail_ok=0
-  for index, raw in enumerate(raws[:3]):
+  selected=select_gupy_details(slug,raws,3)
+  indices={raw['id']:i for i,raw in enumerate(raws)}
+  for raw in selected:
    try:
-    raws[index]=enrich_detail(raw,get_gupy_detail(raw['url']))
+    raws[indices[raw['id']]]=enrich_detail(raw,get_gupy_detail(raw['url']))
     detail_ok+=1
    except (ValueError, TypeError, KeyError, UnicodeError, urllib.error.URLError, TimeoutError, OSError): pass
   batch=ListingBatch([job for raw in raws if (job:=make_job(provider,slug,raw)) is not None],
                       complete=False, raw_count=getattr(raws, 'raw_count', None))
-  batch.details_attempted=min(len(raws),3);batch.details_succeeded=detail_ok
+  batch.details_attempted=len(selected);batch.details_succeeded=detail_ok
   return batch
  if provider in ('smartrecruiters','breezy'):
   from providers_extra import smartrecruiters, breezy
