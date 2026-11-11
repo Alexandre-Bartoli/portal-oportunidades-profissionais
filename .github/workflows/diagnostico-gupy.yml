@@ -1,0 +1,34 @@
+name: Diagnostico publico Gupy
+on: [push]
+permissions:
+  contents: read
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Conferir estrutura
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, urllib.parse, collections
+          for kind in ('internship','temporary'):
+              seen=set()
+              for page in range(5):
+                  q=urllib.parse.urlencode({'jobName':'','type':'vacancy_type_'+kind,'limit':'25','offset':str(page*25)})
+                  req=urllib.request.Request('https://portal.gupy.io/api/job-search/jobs?'+q,headers={'User-Agent':'Mozilla/5.0'})
+                  try:
+                      with urllib.request.urlopen(req,timeout=15) as r: rows=json.load(r)['data']
+                      dup=0
+                      invalid=[]
+                      for row in rows:
+                          ident=str(row.get('id'))
+                          if ident in seen: dup+=1
+                          seen.add(ident)
+                          url=row.get('jobUrl')
+                          if not isinstance(url,str) or not url or not urllib.parse.urlsplit(url).hostname or not urllib.parse.urlsplit(url).hostname.endswith('.gupy.io'):
+                              invalid.append({'url_kind':type(url).__name__,'url_host':urllib.parse.urlsplit(url).hostname if isinstance(url,str) else None,'keys':sorted(row)})
+                      print(kind,page,'count',len(rows),'duplicates',dup,'invalid',invalid)
+                  except Exception as e:
+                      print(kind,page,'error',type(e).__name__)
+                      break
+          PY
