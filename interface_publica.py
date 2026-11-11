@@ -58,6 +58,7 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     panel+=options('country','País',filters['country'],[('','Todos os países'),('BR','Brasil'),('CA','Canadá'),('US','Estados Unidos'),('GB','Reino Unido'),('PT','Portugal')])
     panel+=options('mode','Modalidade',filters['mode'],[('','Todas as modalidades'),('remote','Remota'),('hybrid','Híbrida'),('onsite','Presencial'),('unknown','Não informada')])
     panel+=options('area','Área sugerida',filters['area'],[('','Todas as áreas')]+[(x,x) for x in areas])
+    panel+=options('published_days','Data de publicação',filters.get('published_days',''),[('','Qualquer data'),('7','Últimos 7 dias'),('14','Últimos 14 dias'),('30','Últimos 30 dias'),('90','Últimos 90 dias')], 'Sem data informada, a vaga continua aparecendo.')
     panel+=options('uf','Estado',filters['uf'],[('','Todos os estados')]+states)
     panel+=options('municipality','Município',filters['municipality'],[('','Todos os municípios')]+cities if filters['uf'] else [('','Selecione o estado primeiro')], 'Após selecionar o estado, pesquise para carregar os municípios.')
     panel+='<label class="field"><span class="field-title">Raio em quilômetros</span><input class="control" name="radius_km" type="number" min="0" max="2000" step="1" value="'+esc(filters['radius_km'])+'" placeholder="Ex.: 50"><small>Distância aproximada entre sedes municipais.</small></label></div>'

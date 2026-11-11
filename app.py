@@ -55,7 +55,7 @@ class Handler(BaseHTTPRequestHandler):
     if kind not in ('internship','employment','temporary','all'):return self.response('{"error":"Categoria inválida"}',status=400)
     result=query(q=p.get('q',[''])[0][:100],country=p.get('country',[''])[0][:3],kind='' if kind=='all' else kind,limit=p.get('limit',[30])[0],exclude_demo=STAGING_MODE,
                  region=p.get('region',[''])[0],mode=p.get('mode',[''])[0],area=p.get('area',[''])[0],offset=p.get('offset',[0])[0],
-                 uf=p.get('uf',[''])[0],municipality=p.get('municipality',[''])[0],radius_km=p.get('radius_km',[''])[0])
+                 uf=p.get('uf',[''])[0],municipality=p.get('municipality',[''])[0],radius_km=p.get('radius_km',[''])[0],published_days=p.get('published_days',[''])[0])
     for item in result:item['signals']=analyze(item['title'],item['description'],item['mode'])
     return self.response(json.dumps({'count':len(result),'results':result},ensure_ascii=False))
    except ValueError:return self.response('{"error":"Parâmetro inválido"}',status=400)
@@ -74,10 +74,10 @@ class Handler(BaseHTTPRequestHandler):
   kind=p.get('kind',['internship'])[0]
   if kind not in ('internship','employment','temporary','all'):kind='internship'
   region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
-  uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0]
+  uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0];published_days=p.get('published_days',[''])[0]
   try:
    offset=int(p.get('offset',[0])[0])
-   records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset,uf=uf,municipality=municipality,radius_km=radius)
+   records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset,uf=uf,municipality=municipality,radius_km=radius,published_days=published_days)
   except ValueError:return self.response('Filtro inválido','text/plain',400)
   has_more=len(records)>30;records=records[:30]
   from core import AREAS
@@ -86,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
   states=[(x,x) for x in sorted({r[2] for r in municipalities()})]
   cities=[(r[0],r[1]) for r in municipalities(uf)] if uf else []
   filters={'q':q,'country':country,'kind':kind,'region':region,'mode':mode,'area':area,
-           'uf':uf,'municipality':municipality,'radius_km':radius}
+           'uf':uf,'municipality':municipality,'radius_km':radius,'published_days':published_days}
   navigation=[]
   for target,label in ((max(0,offset-30),'Página anterior'),(offset+30,'Próxima página')):
    if (label=='Página anterior' and offset>0) or (label=='Próxima página' and has_more and target<=10000):

@@ -1,4 +1,4 @@
-# Inclui verificacao de vagas com pais internacional identificado.
+# Inclui verificacao de vagas internacionais e buscas de Minas Gerais.
 name: Homologacao isolada das vagas
 on:
   workflow_dispatch:
@@ -30,6 +30,16 @@ jobs:
           with sqlite3.connect('data/homologacao.sqlite3') as db:
               rows = db.execute("SELECT country, kind, COUNT(*) FROM jobs WHERE active=1 AND country GLOB '[A-Z][A-Z]' AND country <> 'BR' GROUP BY country, kind ORDER BY country, kind").fetchall()
           print('Vagas internacionais por país e categoria:', rows)
+          PY
+      - name: Verificar filtro de Minas Gerais
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import core
+          core.DB = Path('data/homologacao.sqlite3')
+          for kind in ('employment', 'internship', 'temporary'):
+              rows = core.query(kind=kind, region='brazil', uf='MG', limit=100)
+              print('MINAS', kind, 'vagas até 100', len(rows))
           PY
       - name: Diagnosticar persistencia temporaria e pendencias de fontes
         if: always()

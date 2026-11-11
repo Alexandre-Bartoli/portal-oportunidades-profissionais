@@ -209,14 +209,13 @@ def fetch_source(provider,slug):
   return ListingBatch([job for raw in rows if (job:=make_job(provider,slug,raw)) is not None],
                       complete=False,raw_count=rows.raw_count)
  if provider=='gupy':
-  from gupy import fetch, enrich_detail
-  terms={'estagio':'internship','emprego':'employment','temporario':'temporary'}
-  if slug not in terms:raise ValueError('Consulta Gupy não autorizada na configuração')
+  from gupy import fetch, enrich_detail, source_parameters
+  contract,state=source_parameters(slug)
   from providers_extra import ListingBatch
-  raws=fetch('',contract=terms[slug],pages=5,limit=25,get_json=get_json)
+  raws=fetch('',contract=contract,pages=1 if state else 5,limit=25,get_json=get_json,state=state)
   # Detalhes limitados por rodada. Falhas individuais preservam a listagem.
   detail_ok=0
-  selected=select_gupy_details(slug,raws,3)
+  selected=select_gupy_details(slug,raws,10 if state else 3)
   indices={raw['id']:i for i,raw in enumerate(raws)}
   for raw in selected:
    try:
@@ -404,7 +403,7 @@ def stats():
  with connect() as db:
   return dict(db.execute('SELECT active,COUNT(*) FROM jobs WHERE demo=0 GROUP BY active').fetchall())
 
-def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, region='', mode='', area='', offset=0, uf='', municipality='', radius_km=None):
+def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, region='', mode='', area='', offset=0, uf='', municipality='', radius_km=None, published_days=''):
  import math
  from geografia import catalog, distance_km
  cities=catalog()[0]
@@ -417,6 +416,7 @@ def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, regi
  else:radius_km=None
  if region not in ('','brazil','international'):raise ValueError('Região inválida')
  if mode not in ('','remote','onsite','hybrid','unknown'):raise ValueError('Modalidade inválida')
+ if str(published_days) not in ('','7','14','30','90'):raise ValueError('Período de publicação inválido')
  if area and area not in AREAS:raise ValueError('Área inválida')
  offset=int(offset)
  if not 0<=offset<=10000:raise ValueError('Página inválida')
@@ -432,6 +432,9 @@ def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, regi
  if region=='international':statement+=" AND country GLOB '[A-Z][A-Z]' AND country <> 'BR'"
  if mode:statement+=' AND mode = ?';args.append(mode)
  if area:statement+=' AND EXISTS (SELECT 1 FROM json_each(jobs.areas) WHERE value = ?)';args.append(area)
+ if published_days:
+  statement+=" AND (julianday(published_at) IS NULL OR julianday(published_at) >= julianday('now', ?))"
+  args.append('-'+str(published_days)+' days')
  if radius_km is not None:
   statement+=' AND geo_distance(geo_municipio) <= ?';args.append(radius_km)
  elif municipality:

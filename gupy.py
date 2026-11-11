@@ -17,6 +17,26 @@ CONTRACTS = {
 }
 MODES = {'remote': 'remote', 'hybrid': 'hybrid', 'on-site': 'onsite'}
 
+# Nomes usados pela busca Gupy, adaptados do Job Pindorama (licença MIT).
+UF_NAMES = {
+    'AC':'Acre', 'AL':'Alagoas', 'AP':'Amapá', 'AM':'Amazonas', 'BA':'Bahia', 'CE':'Ceará',
+    'DF':'Distrito Federal', 'ES':'Espírito Santo', 'GO':'Goiás', 'MA':'Maranhão',
+    'MT':'Mato Grosso', 'MS':'Mato Grosso do Sul', 'MG':'Minas Gerais', 'PA':'Pará',
+    'PB':'Paraíba', 'PR':'Paraná', 'PE':'Pernambuco', 'PI':'Piauí', 'RJ':'Rio de Janeiro',
+    'RN':'Rio Grande do Norte', 'RS':'Rio Grande do Sul', 'RO':'Rondônia', 'RR':'Roraima',
+    'SC':'Santa Catarina', 'SP':'São Paulo', 'SE':'Sergipe', 'TO':'Tocantins',
+}
+
+def source_parameters(slug):
+    kinds = {'estagio':'internship', 'emprego':'employment', 'temporario':'temporary'}
+    if not isinstance(slug, str): raise ValueError('Pesquisa Gupy inválida')
+    parts = slug.split('-')
+    if len(parts) == 1 and parts[0] in kinds:
+        return kinds[parts[0]], ''
+    if len(parts) == 2 and parts[0] in kinds and parts[1] in {x.lower() for x in UF_NAMES}:
+        return kinds[parts[0]], UF_NAMES[parts[1].upper()]
+    raise ValueError('Pesquisa Gupy inválida')
+
 def explicit_country(value):
     if not isinstance(value,str): return None
     country=value.strip()
