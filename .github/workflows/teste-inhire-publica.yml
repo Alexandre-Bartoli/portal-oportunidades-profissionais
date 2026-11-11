@@ -1,0 +1,31 @@
+name: Verificar InHire
+on: [push]
+permissions:
+  contents: read
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Consultar listagens publicas
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, urllib.error
+          base='https://api.inhire.app/job-posts/public/pages'
+          for slug in ('aldaktecnologia','dtidigital','movecta'):
+              try:
+                  req=urllib.request.Request(base,headers={'X-Tenant':slug,'User-Agent':'Mozilla/5.0'})
+                  with urllib.request.urlopen(req,timeout=15) as response:
+                      payload=json.load(response)
+                  rows=payload.get('jobsPage')
+                  print(slug, 'keys',sorted(payload), 'jobs_type',type(rows).__name__, 'count',len(rows) if isinstance(rows,list) else None)
+                  if isinstance(rows,list) and rows:
+                      print(slug, 'row_keys', sorted(rows[0]))
+                      ident=rows[0].get('jobId')
+                      if ident:
+                          req=urllib.request.Request(base+'/'+str(ident),headers={'X-Tenant':slug,'User-Agent':'Mozilla/5.0'})
+                          with urllib.request.urlopen(req,timeout=15) as response: detail=json.load(response)
+                          print(slug,'detail_keys',sorted(detail))
+                          print(slug,'detail_fields', {k:detail.get(k) for k in ('displayName','location','country','contractType','workplaceType','tenantName')})
+              except Exception as e: print(slug,'error',type(e).__name__,str(e)[:150])
+          PY
