@@ -12,7 +12,7 @@ A busca da Gupy utiliza a mesma rota pública de pesquisa estudada no Job Pindor
 | Sólides | Uma página por pesquisa; categorias conservadoras. Local e país não são inferidos como confirmados. | Desativada; condições de acesso e publicação e teste real pendentes. |
 | VAGAS.com | Os termos consultados tratam de direitos sobre conteúdos e de reprodução com autorização. | Nenhuma coleta automática foi criada ou ativada; verificar autorização aplicável. |
 | Workable | Adaptador de widget por organização, sem busca global; não implica acesso à API autenticada de clientes. | Não há organização configurada; revisão e teste real pendentes. |
-| InHire | Adaptador por identificador de empresa e consulta ao detalhe de cada anúncio, inspirado no Radar de Vagas. | Nenhuma empresa configurada; revisão e teste real pendentes. |
+| InHire | Adaptador por identificador de empresa e consulta ao detalhe de cada anúncio, inspirado no Radar de Vagas. | dti digital e Movecta configuradas para acesso experimental; revisão de uso pendente. |
 | Remotive | Feed remoto; o link de candidatura aponta à Remotive e o nome da fonte aparece no portal. A localização retornada representa restrição geográfica de candidatura, não o endereço da vaga. | Desativada; condições e validação real pendentes. |
 
 Fontes consultadas em 8 de novembro de 2026: [VAGAS.com, termos de uso](https://www.vagas.com.br/candidatos/termos-de-uso); [Workable, API para página de carreiras](https://help.workable.com/hc/en-us/articles/115012771647-Using-the-Workable-API-to-create-a-careers-page); [Remotive, condições da API](https://remotive.com/remote-jobs/api); [documentação da API Remotive](https://github.com/remotive-com/remote-jobs-api); [Gupy, página de carreiras externa](https://developers.gupy.io/docs/fluxo-de-pagina-de-carreiras). A documentação de página de carreiras da Gupy não é prova de autorização para o endpoint do portal usado no experimento. Não foi confirmada permissão de republicação para Sólides ou Workable.
@@ -29,7 +29,7 @@ O filtro geográfico reconhece nomes completos de estados brasileiros ou siglas 
 
 A Remotive informa que a API pública tem atraso de 24 horas, solicita atribuição e link à Remotive, impõe restrições de redistribuição e recomenda no máximo quatro consultas por dia. O código reserva no SQLite um intervalo mínimo de seis horas entre tentativas e não repete automaticamente uma mesma requisição. O limite é compartilhado apenas por processos que usam o mesmo diretório de código e `data`; não é uma limitação distribuída entre servidores. O arquivo de limites precisa ser persistente para que reinícios mantenham a restrição. A verificação das condições aplicáveis ao uso específico do portal continua pendente.
 
-Sólides, Workable, InHire e Remotive exigem revisão técnica documental antes de serem consultadas pelas rotinas automáticas, de homologação ou de auditoria. A Gupy pode ser consultada com a opção experimental_access, mantendo a revisão marcada como pendente. Isso não confirma permissão para republicação. As fontes antigas já habilitadas continuam exigindo revisão antes de qualquer publicação.
+Sólides, Workable e Remotive exigem revisão técnica documental antes de serem consultadas pelas rotinas automáticas, de homologação ou de auditoria. A Gupy e a InHire podem ser consultadas com a opção experimental_access, mantendo a revisão marcada como pendente. Isso não confirma permissão para republicação. As fontes antigas já habilitadas continuam exigindo revisão antes de qualquer publicação.
 
 ## Duplicatas e sinais
 

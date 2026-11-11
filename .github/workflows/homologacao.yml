@@ -1,3 +1,4 @@
+# Inclui verificacao das fontes InHire e filtros geograficos.
 name: Homologacao isolada das vagas
 on:
   workflow_dispatch:

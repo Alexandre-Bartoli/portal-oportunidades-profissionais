@@ -27,7 +27,7 @@ def validate_sources(config):
             raise ValueError(f'Fonte {index}: identificador inseguro')
         if type(item.get('enabled')) is not bool:
             raise ValueError(f'Fonte {index}: enabled deve ser booleano')
-        if 'experimental_access' in item and (provider != 'gupy' or type(item['experimental_access']) is not bool):
+        if 'experimental_access' in item and (provider not in {'gupy', 'inhire'} or type(item['experimental_access']) is not bool):
             raise ValueError(f'Fonte {index}: acesso experimental inválido')
         key = (provider, slug.casefold())
         if key in seen:
