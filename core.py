@@ -116,7 +116,7 @@ def make_job(provider,source,raw):
  from geografia import locate
  company=raw.get('company')
  company=clean(company)[:200] or None if isinstance(company,str) else None
- published_at=valid_publication_date(raw.get('published_at') or raw.get('date'))
+ published_at=valid_publication_date(raw.get('published_at') or raw.get('date') or (raw.get('publishedAt') if provider=='ashby' else None))
  return {'id':fingerprint,'provider':provider,'source':source,'external_id':extid,'title':clean(title),
  'description':description[:12000],'url':url,'location':clean(location),'country':country,
  'mode':mode,'kind':kind,'review_status':review,'areas':areas_for(title,description),

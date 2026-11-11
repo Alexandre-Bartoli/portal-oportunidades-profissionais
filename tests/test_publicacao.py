@@ -8,6 +8,11 @@ import core
 
 
 class PublicacaoTests(unittest.TestCase):
+    def test_ashby_publication_date_is_preserved(self):
+        item=core.make_job('ashby','empresa',{'id':'a','title':'Estágio',
+            'jobUrl':'https://jobs.ashbyhq.com/empresa/a', 'publishedAt':'2026-11-10T12:00:00Z'})
+        self.assertEqual(item['published_at'],'2026-11-10T12:00:00Z')
+
     def test_recent_filter_keeps_unknown_dates_and_excludes_old(self):
         now = datetime.now(timezone.utc)
         with tempfile.TemporaryDirectory() as tmp, patch.object(core, 'DB', Path(tmp)/'jobs.sqlite3'):
