@@ -1,0 +1,145 @@
+"""Busca pontual de fontes configuradas e acompanhamento em memória."""
+import json
+import logging
+import re
+import secrets
+import threading
+from datetime import datetime, timedelta, timezone
+
+import core
+from geografia import catalog, distance_km
+from source_quality import validate_sources
+from source_reviews import pending_technical_review
+
+KINDS={'internship':'estagio','employment':'emprego','temporary':'temporario'}
+LOG=logging.getLogger(__name__)
+
+
+def _plan(filters):
+    kind=filters.get('kind','all');region=filters.get('region','');country=filters.get('country','')
+    uf=filters.get('uf','');city_id=filters.get('municipality','');radius=filters.get('radius_km','')
+    if kind not in ('all',*KINDS) or region not in ('','brazil','international'):
+        raise ValueError('Filtros inválidos')
+    if country and not re.fullmatch(r'[A-Z]{2}',country):raise ValueError('País inválido')
+    cities=catalog()[0];states={row[2] for row in cities.values()}
+    if uf and uf not in states:raise ValueError('Estado inválido')
+    if city_id and (not uf or city_id not in cities or cities[city_id][2]!=uf):raise ValueError('Município inválido')
+    if radius:
+        try:distance=float(radius)
+        except (ValueError,TypeError):raise ValueError('Raio inválido') from None
+        import math
+        if not city_id or not math.isfinite(distance) or not 0<=distance<=2000:raise ValueError('Raio inválido')
+    if (uf and (region=='international' or (country and country!='BR'))) or (region=='brazil' and country and country!='BR') or (region=='international' and country=='BR'):
+        raise ValueError('País, região e estado incompatíveis')
+    config=json.loads((core.BASE/'sources.json').read_text(encoding='utf-8'));validate_sources(config)
+    sources=config['sources'];kinds=list(KINDS) if kind=='all' else [kind]
+    brazil=bool(uf or country=='BR' or region=='brazil') or not (country or region)
+    international=not uf and country!='BR' and region!='brazil'
+    tasks=[]
+    if brazil:
+        ufs=[uf]
+        if uf and radius:
+            closest={}
+            for code,row in cities.items():
+                if row[2]==uf:continue
+                d=distance_km(city_id,code)
+                if d<=distance:closest[row[2]]=min(d,closest.get(row[2],d))
+            ufs += sorted(closest,key=lambda state:(closest[state],state))[:4]
+        for k in kinds:
+            for search_uf in ufs:
+                base=KINDS[k];slug=base+'-'+search_uf.lower() if search_uf else base
+                candidates=[s for s in sources if s['provider']=='gupy' and s['slug'] in (base,slug) and s['enabled']]
+                if not any(not pending_technical_review(s) for s in candidates):continue
+                city=cities[city_id][1] if city_id and not radius else ''
+                workplace={'remote':'remote','hybrid':'hybrid','onsite':'on-site'}.get(filters.get('mode'),'')
+                tasks.append(('gupy',slug,{'detail_limit':5,'query_text':filters.get('q','')[:100],
+                                          'city':city,'workplace':workplace}))
+        for source in sources:
+            if (source['enabled'] and source.get('region')=='BR' and source['provider'] in ('inhire','ashby','lever','greenhouse')
+                    and not pending_technical_review(source)):
+                tasks.append((source['provider'],source['slug'],{}))
+    if international:
+        for source in sources:
+            if (source['enabled'] and source.get('region')=='international' and source['provider'] in ('ashby','lever','greenhouse')
+                    and not pending_technical_review(source)):
+                tasks.append((source['provider'],source['slug'],{}))
+    return tasks
+
+
+def _matches(job, filters):
+    kind=filters.get('kind','all');region=filters.get('region','');country=filters.get('country','')
+    uf=filters.get('uf','');city=filters.get('municipality','');radius=filters.get('radius_km','')
+    if kind!='all' and job['kind']!=kind:return False
+    if country and job.get('country')!=country:return False
+    if (region=='brazil' or uf) and job.get('country')!='BR':return False
+    if region=='international' and (not re.fullmatch(r'[A-Z]{2}',job.get('country') or '') or job.get('country')=='BR'):return False
+    if filters.get('mode') and job.get('mode')!=filters['mode']:return False
+    if filters.get('area') and filters['area'] not in job.get('areas',[]):return False
+    text=filters.get('q','').lower()
+    if text and text not in (job.get('title','')+' '+job.get('description','')+' '+json.dumps(job.get('areas',[]),ensure_ascii=False)).lower():return False
+    date=job.get('published_at');days=filters.get('published_days','')
+    if days and date:
+        try:
+            when=datetime.fromisoformat(date.replace('Z','+00:00'))
+            if when.tzinfo is None:when=when.replace(tzinfo=timezone.utc)
+            if when < datetime.now(timezone.utc)-timedelta(days=int(days)):return False
+        except (ValueError,TypeError):pass
+    code=job.get('geo_municipio');cities=catalog()[0]
+    if radius:
+        if code not in cities or distance_km(city,code)>float(radius):return False
+    elif city:
+        if code!=city:return False
+    elif uf and (code not in cities or cities[code][2]!=uf):return False
+    return True
+
+
+class SearchManager:
+    def __init__(self):
+        self.lock=threading.Lock();self.jobs={};self.threads={}
+
+    def start(self,filters):
+        tasks=_plan(filters)
+        if not tasks:raise ValueError('Nenhuma fonte disponível para os filtros escolhidos')
+        with self.lock:
+            if any(j['status']=='running' for j in self.jobs.values()):raise ValueError('Já existe uma busca em andamento')
+            self.jobs.clear();self.threads.clear()
+            ident=secrets.token_urlsafe(24)
+            self.jobs[ident]={'status':'running','total':len(tasks),'done':0,'failed':0,'details_failed':0,'saved':0,'ids':[],
+                              'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters)}
+            worker=threading.Thread(target=self._run,args=(ident,tasks,dict(filters)),daemon=True)
+            self.threads[ident]=worker;worker.start()
+        return ident
+
+    def _run(self,ident,tasks,filters):
+        for provider,slug,options in tasks:
+            with self.lock:self.jobs[ident].update(current=provider+'/'+slug,detail_done=0,detail_total=0)
+            try:
+                def progress(done,total):
+                    with self.lock:self.jobs[ident].update(detail_done=done,detail_total=total)
+                extra={'progress_callback':progress} if provider=='gupy' else {}
+                rows=core.fetch_source(provider,slug,**options,**extra)
+                detail_failed=max(0,getattr(rows,'details_attempted',0)-getattr(rows,'details_succeeded',0))
+                with self.lock:self.jobs[ident]['details_failed']+=detail_failed
+                matched=[job for job in rows if _matches(job,filters)]
+                core.save(matched)
+                external_ids=[str(job['external_id']) for job in matched]
+                with core.connect() as db:
+                    ids=[row[0] for row in db.execute('SELECT DISTINCT job_id FROM job_aliases WHERE provider=? AND source=? AND external_id IN (SELECT value FROM json_each(?))',
+                         (provider,slug,json.dumps(external_ids))).fetchall()]
+                with self.lock:
+                    self.jobs[ident]['ids']=sorted(set(self.jobs[ident]['ids'])|set(ids))
+                    self.jobs[ident]['saved']=len(self.jobs[ident]['ids'])
+            except Exception as exc:
+                LOG.warning('Falha na consulta %s/%s: %s',provider,slug,type(exc).__name__)
+                with self.lock:self.jobs[ident]['failed']+=1
+            finally:
+                with self.lock:self.jobs[ident]['done']+=1
+        with self.lock:self.jobs[ident].update(status='completed',current='Consulta concluída')
+
+    def status(self,ident):
+        with self.lock:
+            return dict(self.jobs[ident]) if ident in self.jobs else None
+
+    def wait(self,ident,timeout=None):
+        with self.lock:thread=self.threads.get(ident)
+        if thread:thread.join(timeout)

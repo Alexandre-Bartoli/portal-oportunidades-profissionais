@@ -125,3 +125,20 @@ class GeographyTests(unittest.TestCase):
         with urllib.request.urlopen(base+'/api/jobs?kind=all&uf=MG&municipality=3105608&radius_km=50') as response:
             result=json.load(response)
         self.assertEqual([item['external_id'] for item in result['results']], ['1'])
+
+    def test_load_cities_button_preserves_radius_and_loads_selected_state(self):
+        import app
+        import threading
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        server=ThreadingHTTPServer(('127.0.0.1',0),app.Handler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            url=f'http://127.0.0.1:{server.server_port}/?kind=employment&uf=MG&radius_km=50&load_cities=1'
+            with urllib.request.urlopen(url) as response:
+                page=response.read().decode('utf-8')
+            self.assertIn('Barbacena',page)
+            self.assertIn('value="50"',page)
+            self.assertIn('name="load_cities"',page)
+        finally:
+            server.shutdown();server.server_close();thread.join(3)

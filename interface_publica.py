@@ -55,14 +55,16 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     panel+='<fieldset class="full" style="border:0;padding:0;margin:0"><legend class="group-title">Tipo de oportunidade</legend><div class="categories">'+choices+'</div></fieldset>'
     panel+='<div class="field-section"><h3>Onde e como</h3>'
     panel+=options('region','Região',filters['region'],[('','Todas as regiões'),('brazil','Brasil'),('international','Exterior')])
-    panel+=options('country','País',filters['country'],[('','Todos os países'),('BR','Brasil'),('CA','Canadá'),('US','Estados Unidos'),('GB','Reino Unido'),('PT','Portugal')])
+    panel+=options('country','País',filters['country'],[('','Todos os países'),('BR','Brasil'),('CA','Canadá'),('US','Estados Unidos'),('GB','Reino Unido'),('DE','Alemanha'),('SA','Arábia Saudita'),('AU','Austrália'),('KR','Coreia do Sul'),('AE','Emirados Árabes Unidos'),('ES','Espanha'),('FR','França'),('NL','Holanda'),('IE','Irlanda'),('IT','Itália'),('JP','Japão'),('PT','Portugal'),('SG','Singapura'),('SE','Suécia')])
     panel+=options('mode','Modalidade',filters['mode'],[('','Todas as modalidades'),('remote','Remota'),('hybrid','Híbrida'),('onsite','Presencial'),('unknown','Não informada')])
     panel+=options('area','Área sugerida',filters['area'],[('','Todas as áreas')]+[(x,x) for x in areas])
     panel+=options('published_days','Data de publicação',filters.get('published_days',''),[('','Qualquer data'),('7','Últimos 7 dias'),('14','Últimos 14 dias'),('30','Últimos 30 dias'),('90','Últimos 90 dias')], 'Sem data informada, a vaga continua aparecendo.')
     panel+=options('uf','Estado',filters['uf'],[('','Todos os estados')]+states)
-    panel+=options('municipality','Município',filters['municipality'],[('','Todos os municípios')]+cities if filters['uf'] else [('','Selecione o estado primeiro')], 'Após selecionar o estado, pesquise para carregar os municípios.')
+    panel+='<button class="control" type="submit" name="load_cities" value="1" formnovalidate>Carregar municípios</button>'
+    panel+=options('municipality','Município',filters['municipality'],[('','Todos os municípios')]+cities if filters['uf'] else [('','Selecione o estado primeiro')], 'Selecione o estado e clique em Carregar municípios.')
     panel+='<label class="field"><span class="field-title">Raio em quilômetros</span><input class="control" name="radius_km" type="number" min="0" max="2000" step="1" value="'+esc(filters['radius_km'])+'" placeholder="Ex.: 50"><small>Escolha um município. O raio é medido em linha reta a partir da sede municipal, não da sua localização atual.</small></label></div>'
-    panel+='<div class="full"><button class="search-button" type="submit">Buscar oportunidades &nbsp; →</button><a class="clear" href="/?kind=all">Limpar filtros</a></div></form></aside>'
+    online='' if staging else ' formmethod="post" formaction="/buscar-agora"'
+    panel+='<div class="full"><button class="search-button" type="submit"'+online+'>Buscar oportunidades &nbsp; →</button><small>Ao buscar, o cargo e a localização escolhidos podem ser enviados às fontes consultadas.</small><a class="clear" href="/?kind=all">Limpar filtros</a></div></form></aside>'
     cards=[]
     for job in jobs:
         ident=quote(str(job['id']),safe='');title=esc(job['title']);company=job.get('company') or 'Empresa não informada'
@@ -76,7 +78,39 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     nav='<nav class="pagination" aria-label="Páginas">'+''.join('<a href="'+esc(url)+'">'+esc(label)+'</a>' for url,label in navigation)+'</nav>' if navigation else ''
     portal_links=''.join('<li><a href="'+esc(p['url'])+'" target="_blank" rel="noopener noreferrer">'+esc(p['name'])+' ↗</a></li>' for p in portals)
     directory=('<section class="portal-list"><h3>Outros lugares para pesquisar</h3><p>Portais com consulta diretamente na fonte.</p><ul>'+portal_links+'</ul></section>') if portal_links else ''
-    notice='Ambiente de homologação. Os anúncios são coletados automaticamente e podem precisar de revisão.' if staging else 'Protótipo local. Confira as informações no anúncio original.'
+    notice='Ambiente de homologação. Os anúncios são coletados automaticamente e podem precisar de revisão.' if staging else 'Protótipo local. Os resultados dependem das fontes consultadas e podem ser parciais. Confira as informações no anúncio original.'
     alert='<div class="notice" role="alert">'+esc(error_message)+'</div>' if error_message else ''
     body=shell_start('Portal de Oportunidades')+'<section class="hero"><div class="wrap hero-inner"><div class="eyebrow">Um lugar para descobrir possibilidades</div><h1>Encontre oportunidades<br>para o seu próximo passo.</h1><p>Pesquise vagas de estágio, emprego e trabalho temporário em um só lugar.</p><div class="hero-note">Consulte os detalhes e candidate-se na fonte original.</div></div></section><main class="wrap content">'+panel+'<section aria-labelledby="results-title">'+alert+'<div class="notice">'+notice+'</div><div class="results-head"><div><span class="section-kicker">Explore as vagas</span><h2 id="results-title">Oportunidades para você</h2><p>Resultados de acordo com os filtros selecionados.</p></div><span class="count">'+str(len(jobs))+' nesta página</span></div><div class="job-list">'+cards_html+'</div>'+nav+'<div class="notice" style="margin-top:24px">No filtro por município e raio, a distância em linha reta é aproximada entre sedes municipais. Vagas remotas e vagas sem localização suficiente não aparecem nessa pesquisa.</div>'+directory+'</section></main>'+footer()
     return body
+
+
+def render_progress(state, ident):
+    from urllib.parse import urlencode
+    filters=state['filters']
+    result_url='/?'+urlencode({**filters,'search_id':ident})
+    progress_url='/busca-progresso?id='+quote(ident,safe='')
+    running=state['status']=='running'
+    if running:
+        meta='<meta http-equiv="refresh" content="2;url='+esc(progress_url)+'">'
+    elif not state['failed'] and not state.get('details_failed'):
+        meta='<meta http-equiv="refresh" content="2;url='+esc(result_url)+'">'
+    else:
+        meta=''
+    header=shell_start('Atualizando oportunidades').replace('</head>',meta+'</head>')
+    total=state['total'];done=state['done']
+    detail_total=state.get('detail_total',0);detail_done=state.get('detail_done',0)
+    fraction=min(99,round(100*detail_done/detail_total)) if running and detail_total else 0
+    value=done*100+fraction
+    status='Consultando '+esc(state['current']) if running else 'Consulta concluída'
+    details=('<p>Não foi possível concluir '+str(state['failed'])+' consulta(s). Os resultados incluem apenas as fontes que responderam.</p>' if state['failed'] else '')
+    if not running:
+        details+='<p>'+str(state['saved'])+' oportunidade(s) encontradas nesta consulta.</p>'
+    if state.get('details_failed'):
+        details+='<p>'+str(state['details_failed'])+' detalhes não puderam ser consultados. Algumas vagas podem não aparecer nos filtros de localização.</p>'
+    action='' if running else '<a class="detail-action" href="'+esc(result_url)+'">Ver resultados</a>'
+    body=('<main class="wrap detail-wrap"><article class="detail-box"><h1>Atualizando oportunidades</h1>'
+          '<p>'+status+'</p><progress value="'+str(value)+'" max="'+str(total*100)+'" style="width:100%"></progress>'
+          '<p>'+str(done)+' de '+str(total)+' fontes consultadas.</p>'+details+action+
+          '<p class="detail-notice">A consulta usa as fontes configuradas para a região escolhida. Algumas enviam todos os anúncios para filtragem no portal. As fontes e o número de anúncios consultados são limitados, por isso pode haver outras vagas. No filtro por raio, são consultados até cinco estados.</p>'
+          '</article></main>')
+    return header+body+footer()
