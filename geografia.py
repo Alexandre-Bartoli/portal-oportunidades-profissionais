@@ -45,7 +45,7 @@ def municipalities(uf=''):
 def locate(location, country):
     if country != 'BR' or not isinstance(location, str):
         return None
-    match = re.fullmatch(r'\s*([^,;/]+),\s*([^,;/]+?)(?:,\s*(?:Brasil|Brazil))?\s*', location, re.I)
+    match = re.fullmatch(r'\s*([^,;/]+),\s*([^,;/]+?)(?:,\s*(?:Brasil|Brazil|BR))?\s*', location, re.I)
     if not match:
         return None
     state = match.group(2).strip()

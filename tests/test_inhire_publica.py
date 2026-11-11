@@ -1,6 +1,7 @@
 import unittest
 
 import inhire
+from geografia import locate
 from source_quality import validate_sources
 from source_reviews import pending_technical_review, source_review
 
@@ -40,6 +41,10 @@ class InHirePublicaTests(unittest.TestCase):
         self.assertEqual(len(calls), 50)
         self.assertEqual(result.raw_count, 60)
         self.assertFalse(result.complete)
+
+    def test_brazilian_city_with_country_code_matches_catalog(self):
+        self.assertEqual(locate('Belo Horizonte, MG, BR', 'BR'), '3106200')
+        self.assertIsNone(locate('Belo Horizonte, MG, BR', None))
 
 
 if __name__ == '__main__':
