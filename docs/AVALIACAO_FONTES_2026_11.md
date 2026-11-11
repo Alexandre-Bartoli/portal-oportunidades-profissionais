@@ -21,6 +21,8 @@ Em 9 de novembro de 2026, uma consulta direta no navegador à busca pública da 
 
 Na Gupy, a coleta consulta até cinco páginas de 25 resultados por categoria, sem restringir o título por palavra. O resultado continua parcial, pois não representa todo o catálogo. Uma falha em qualquer página interrompe a coleta daquela fonte e não encerra vagas já gravadas.
 
+Na homologação inicial, a Gupy retornou um total limitado, incompatível com o deslocamento de páginas seguintes, embora essas páginas existissem. A paginação não usa esse total como prova de término: verifica os lotes, tamanho, deslocamento e identidades repetidas. A execução foi interrompida sem apagar dados; uma nova validação real é necessária após o ajuste.
+
 Até três vagas por categoria recebem tentativa de detalhe por coleta, priorizando anúncios ainda não enriquecidos no banco consultado. A página deve ser uma URL HTTPS de vaga de uma empresa Gupy; redirecionamentos são recusados. Descrição, atividades e requisitos são reunidos e o país é preenchido apenas quando informado pela fonte. Uma falha de detalhe preserva a listagem; falhas repetidas nos primeiros candidatos podem atrasar as demais vagas. As contagens de detalhes tentados e obtidos constam no relatório e no painel. As demais vagas podem não aparecer no filtro por país.
 
 O filtro geográfico reconhece nomes completos de estados brasileiros ou siglas quando o país é explicitamente Brasil e existe correspondência municipal única no catálogo IBGE. País desconhecido, cidade ambígua e vaga remota continuam fora dos filtros por município e raio. A distância é aproximada entre sedes municipais.

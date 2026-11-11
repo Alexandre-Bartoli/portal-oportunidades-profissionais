@@ -153,8 +153,9 @@ def fetch(query, contract='internship', pages=1, get_json=None, limit=25, **filt
             for field, expected in (('offset', offset), ('limit', limit)):
                 if field in pagination and (type(pagination[field]) is not int or pagination[field] != expected):
                     raise ValueError('Paginação Gupy inconsistente')
+            # A Gupy pode limitar o total informado mesmo existindo páginas posteriores.
             if 'total' in pagination and (type(pagination['total']) is not int or
-                    pagination['total'] < 0 or (batch and pagination['total'] < offset+len(batch))):
+                    pagination['total'] < 0 or (offset == 0 and batch and pagination['total'] < len(batch))):
                 raise ValueError('Total Gupy inconsistente')
         raw_count += len(batch)
         for row in batch:

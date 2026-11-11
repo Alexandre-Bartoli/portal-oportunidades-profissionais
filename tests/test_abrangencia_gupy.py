@@ -17,6 +17,18 @@ def row(number, **updates):
 
 
 class AbrangenciaGupyTests(unittest.TestCase):
+    def test_gupy_total_can_be_capped_below_later_offset(self):
+        calls=[]
+        def getter(url):
+            params=parse_qs(urlsplit(url).query,keep_blank_values=True)
+            offset=int(params['offset'][0]);calls.append(offset)
+            return {'data':[row(i+1) for i in range(offset,offset+25)],
+                    'pagination':{'offset':offset,'limit':25,'total':100}}
+        result=gupy.fetch('',pages=5,limit=25,get_json=getter)
+        self.assertEqual(len(result),125)
+        self.assertEqual(calls,[0,25,50,75,100])
+        self.assertFalse(result.complete)
+
     def test_collects_multiple_pages_and_keeps_inventory_partial(self):
         calls=[]
         def getter(url):
