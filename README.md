@@ -90,6 +90,8 @@ Adaptações do Radar de Vagas: leitura limitada de detalhes Gupy e conector exp
 
 A Gupy consulta até cinco páginas de 25 anúncios por categoria e prioriza até três detalhes ainda não enriquecidos por coleta. A cobertura é parcial. Os filtros geográficos aceitam siglas ou nomes completos de estados com país confirmado como Brasil; nomes de cidades sozinhos não definem o país.
 
+A busca internacional inclui quadros públicos das empresas Cohere, Wealthsimple e Kaluza. Países informados por nome no campo de endereço são convertidos quando reconhecidos; regiões e países não reconhecidos permanecem sem classificação. Vagas remotas podem exigir residência ou autorização de trabalho no país indicado; verifique as condições no anúncio original.
+
 Na Gupy, anúncios repetidos e anúncios sem URL válida são contabilizados no diagnóstico e não impedem a importação dos demais. URLs fora dos domínios aceitos continuam excluídas. A resposta permanece parcial e não provoca desativação de vagas ausentes.
 
 ## Segurança e responsabilidade

@@ -1,4 +1,4 @@
-# Inclui verificacao das fontes InHire e coleta parcial da Gupy.
+# Inclui verificacao de vagas com pais internacional identificado.
 name: Homologacao isolada das vagas
 on:
   workflow_dispatch:
@@ -23,6 +23,14 @@ jobs:
         env:
           PORTAL_HTTP_TIMEOUT: '8'
           PORTAL_HTTP_ATTEMPTS: '2'
+      - name: Contar vagas internacionais no banco temporario
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          with sqlite3.connect('data/homologacao.sqlite3') as db:
+              rows = db.execute("SELECT country, kind, COUNT(*) FROM jobs WHERE active=1 AND country GLOB '[A-Z][A-Z]' AND country <> 'BR' GROUP BY country, kind ORDER BY country, kind").fetchall()
+          print('Vagas internacionais por país e categoria:', rows)
+          PY
       - name: Diagnosticar persistencia temporaria e pendencias de fontes
         if: always()
         run: |

@@ -35,6 +35,21 @@ def normalize_text(value):
  import unicodedata
  return ''.join(ch for ch in unicodedata.normalize('NFKD', (value or '').lower()) if not unicodedata.combining(ch))
 
+def normalize_country(value):
+ """Converte apenas países informados explicitamente; regiões ficam desconhecidas."""
+ if not isinstance(value,str):return None
+ text=normalize_text(value.strip())
+ names={'brasil':'BR','brazil':'BR','canada':'CA','united states':'US',
+  'estados unidos':'US','united kingdom':'GB','reino unido':'GB','uk':'GB',
+  'france':'FR','franca':'FR','germany':'DE','alemanha':'DE','south korea':'KR',
+  'japan':'JP','japao':'JP','singapore':'SG','united arab emirates':'AE',
+  'sweden':'SE','suecia':'SE','saudi arabia':'SA','australia':'AU',
+  'ireland':'IE','irlanda':'IE','italy':'IT','italia':'IT','portugal':'PT',
+  'spain':'ES','espanha':'ES','netherlands':'NL','holanda':'NL'}
+ if text in names:return names[text]
+ if text == 'eu':return None
+ return text.upper() if re.fullmatch(r'[a-z]{2}',text) else None
+
 def valid_publication_date(value):
  if not isinstance(value,str) or not value or len(value)>40:return None
  try:datetime.fromisoformat(value.replace('Z','+00:00'))
@@ -54,7 +69,7 @@ def category(title, description='', employment_type=''):
   return 'internship'
  if code in ('vacancy_type_temporary','temporary','temporario','fixed term'):
   return 'temporary'
- if code in ('vacancy_type_effective','effective','clt','permanent','full-time','full time','part-time','part time','pj','fixed-term permanent'):
+ if code in ('vacancy_type_effective','effective','clt','permanent','full-time','full time','fulltime','part-time','part time','parttime','pj','fixed-term permanent'):
   return 'employment'
  t=normalize_text(title)
  if WORDS.search(t):return 'internship'
@@ -91,6 +106,7 @@ def make_job(provider,source,raw):
   location=raw.get('location','');extid=str(raw.get('id',''));country=raw.get('country')
   mode=raw.get('mode','unknown')
  else: raise ValueError('Fonte desconhecida')
+ country=normalize_country(country)
  if not title or not url or not url.startswith('https://'): return None
  employment = str(raw.get('employmentType') or (raw.get('categories') or {}).get('commitment') or '')
  kind = raw.get('kind') if provider in ('gupy','smartrecruiters','breezy','solides','remotive','workable','inhire') else category(title,description,employment)
