@@ -1,0 +1,29 @@
+name: Diagnostico internacional isolado
+on: [push]
+permissions:
+  contents: read
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Coletar e verificar paises
+        env:
+          PORTAL_HTTP_TIMEOUT: '8'
+          PORTAL_HTTP_ATTEMPTS: '2'
+        run: |
+          python3 - <<'PY'
+          import json, sqlite3, tempfile
+          from pathlib import Path
+          import homologacao, core
+          with tempfile.TemporaryDirectory() as tmp:
+              db=Path(tmp)/'check.sqlite3'
+              report=Path(tmp)/'report.json'
+              config=json.loads(Path('sources.json').read_text())
+              r=homologacao.collect_staging(config,db_path=db,report_path=report,min_sources=1)
+              print('COLETA',[(s['source'],s['status'],s.get('jobs')) for s in r['sources']])
+              with sqlite3.connect(db) as con:
+                  print('PAISES',con.execute("SELECT COALESCE(country,'DESCONHECIDO'),kind,count(*) FROM jobs WHERE active=1 GROUP BY country,kind ORDER BY count(*) DESC").fetchall())
+                  print('INTERNACIONAIS',con.execute("SELECT provider,source,country,kind,count(*) FROM jobs WHERE active=1 AND country GLOB '[A-Z][A-Z]' AND country <> 'BR' GROUP BY provider,source,country,kind").fetchall())
+          PY
