@@ -149,6 +149,27 @@ class BuscaOnlineTests(unittest.TestCase):
         from interface_publica import render_progress
         self.assertIn('detalhes não puderam ser consultados',render_progress(state,ident))
 
+    def test_source_summary_distinguishes_complete_partial_and_failed(self):
+        config={'sources':[{'provider':'ashby','slug':slug,'enabled':True,'region':'international'}
+                           for slug in ('complete','partial','offline')]}
+        (self.root/'sources.json').write_text(json.dumps(config))
+        def fetch(provider,slug,**kwargs):
+            if slug=='offline':raise OSError('informação privada')
+            return ListingBatch([],complete=slug=='complete',raw_count=0)
+        with patch('core.fetch_source',side_effect=fetch):
+            ident=self.manager.start(self.filters(uf='',region='international',country='CA'))
+            self.manager.wait(ident,3)
+        state=self.manager.status(ident)
+        self.assertEqual([(x['slug'],x['status'],x['matched']) for x in state['sources']],
+                         [('complete','ok',0),('partial','partial',0),('offline','failed',None)])
+        from interface_publica import render_progress,render_source_results
+        html=render_progress(state,ident)
+        for label in ('Consulta concluída','Resultado parcial','Falha na consulta'):self.assertIn(label,html)
+        self.assertNotIn('informação privada',html)
+        self.assertIn('não indica que não existam outras vagas',render_source_results(state['sources']))
+        state['sources'].clear()
+        self.assertEqual(len(self.manager.status(ident)['sources']),3)
+
     def test_conflicting_location_is_rejected(self):
         with self.assertRaises(ValueError):self.manager.start(self.filters(country='CA'))
 

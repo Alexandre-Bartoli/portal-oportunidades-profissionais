@@ -111,6 +111,7 @@ class Handler(BaseHTTPRequestHandler):
   region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
   uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0];published_days=p.get('published_days',[''])[0]
   search_id=p.get('search_id',[''])[0]
+  search=None
   loading_cities=p.get('load_cities',[''])[0]=='1'
   if loading_cities:municipality=''
   error_message=''
@@ -139,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
     params={**filters,'offset':target}
     if search_id:params['search_id']=search_id
     navigation.append(('/?'+urllib.parse.urlencode(params),label))
-  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json(),error_message=error_message)
+  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json(),error_message=error_message,source_results=search.get('sources',[]) if search and not error_message else [])
   self.response(page,'text/html',status=400 if error_message else 200)
 
  def do_POST(self):

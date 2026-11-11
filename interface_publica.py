@@ -47,7 +47,7 @@ def render_detail(item, link, link_label, flags):
     return shell_start(item['title'])+'<main class="wrap detail-wrap"><a class="back-link" href="/">← Voltar à pesquisa</a><article class="detail-box"><span class="section-kicker">Detalhes da oportunidade</span><h1>'+value(item['title'])+'</h1><p class="detail-notice">'+notice+'</p><div class="detail-info">'+facts+'</div><h2>Sobre a vaga</h2><div class="detail-description">'+value(item.get('description'))+'</div>'+warning+action+'<p class="detail-notice">Última verificação na coleta: '+value(item.get('last_seen'))+'</p></article></main>'+footer()
 
 
-def render_search(jobs, filters, areas, states, cities, navigation, staging, portals=(), error_message=''):
+def render_search(jobs, filters, areas, states, cities, navigation, staging, portals=(), error_message='', source_results=()):
     categories=[('all','Todas'),('internship','Estágio'),('employment','Emprego'),('temporary','Temporária')]
     choices=''.join('<label class="choice"><input type="radio" name="kind" value="'+value+'"'+(' checked' if filters['kind']==value else '')+'><span>'+label+'</span></label>' for value,label in categories)
     panel='<aside class="filter-panel"><div class="panel-top"><h2>Refine sua busca</h2><p>Escolha o que faz sentido para você.</p></div><form class="filter-body" method="get" action="/">'
@@ -80,8 +80,16 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     directory=('<section class="portal-list"><h3>Outros lugares para pesquisar</h3><p>Portais com consulta diretamente na fonte.</p><ul>'+portal_links+'</ul></section>') if portal_links else ''
     notice='Ambiente de homologação. Os anúncios são coletados automaticamente e podem precisar de revisão.' if staging else 'Protótipo local. Os resultados dependem das fontes consultadas e podem ser parciais. Confira as informações no anúncio original.'
     alert='<div class="notice" role="alert">'+esc(error_message)+'</div>' if error_message else ''
+    alert+=render_source_results(source_results)
     body=shell_start('Portal de Oportunidades')+'<section class="hero"><div class="wrap hero-inner"><div class="eyebrow">Um lugar para descobrir possibilidades</div><h1>Encontre oportunidades<br>para o seu próximo passo.</h1><p>Pesquise vagas de estágio, emprego e trabalho temporário em um só lugar.</p><div class="hero-note">Consulte os detalhes e candidate-se na fonte original.</div></div></section><main class="wrap content">'+panel+'<section aria-labelledby="results-title">'+alert+'<div class="notice">'+notice+'</div><div class="results-head"><div><span class="section-kicker">Explore as vagas</span><h2 id="results-title">Oportunidades para você</h2><p>Resultados de acordo com os filtros selecionados.</p></div><span class="count">'+str(len(jobs))+' nesta página</span></div><div class="job-list">'+cards_html+'</div>'+nav+'<div class="notice" style="margin-top:24px">No filtro por município e raio, a distância em linha reta é aproximada entre sedes municipais. Vagas remotas e vagas sem localização suficiente não aparecem nessa pesquisa.</div>'+directory+'</section></main>'+footer()
     return body
+
+
+def render_source_results(results):
+    if not results:return ''
+    labels={'ok':'Consulta concluída','partial':'Resultado parcial','failed':'Falha na consulta'}
+    items=''.join('<li><strong>'+esc(x['provider'])+' / '+esc(x['slug'])+'</strong>: '+esc(labels.get(x['status'],'Indisponível'))+(' · '+str(x['matched'])+' vaga(s) compatível(is)' if x.get('matched') is not None else '')+'</li>' for x in results)
+    return '<section class="notice" aria-label="Resultado por fonte"><strong>Resultado por fonte</strong><ul>'+items+'</ul><p>A contagem é por consulta e pode incluir a mesma vaga em fontes diferentes. Resultado parcial ou vazio não indica que não existam outras vagas.</p></section>'
 
 
 def render_progress(state, ident):
@@ -110,7 +118,7 @@ def render_progress(state, ident):
     action='' if running else '<a class="detail-action" href="'+esc(result_url)+'">Ver resultados</a>'
     body=('<main class="wrap detail-wrap"><article class="detail-box"><h1>Atualizando oportunidades</h1>'
           '<p>'+status+'</p><progress value="'+str(value)+'" max="'+str(total*100)+'" style="width:100%"></progress>'
-          '<p>'+str(done)+' de '+str(total)+' fontes consultadas.</p>'+details+action+
+          '<p>'+str(done)+' de '+str(total)+' fontes consultadas.</p>'+details+render_source_results(state.get('sources',[]))+action+
           '<p class="detail-notice">A consulta usa as fontes configuradas para a região escolhida. Algumas enviam todos os anúncios para filtragem no portal. As fontes e o número de anúncios consultados são limitados, por isso pode haver outras vagas. No filtro por raio, são consultados até cinco estados.</p>'
           '</article></main>')
     return header+body+footer()

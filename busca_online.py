@@ -1,5 +1,6 @@
 """Busca pontual de fontes configuradas e acompanhamento em memória."""
 import json
+import copy
 import logging
 import re
 import secrets
@@ -105,7 +106,7 @@ class SearchManager:
             self.jobs.clear();self.threads.clear()
             ident=secrets.token_urlsafe(24)
             self.jobs[ident]={'status':'running','total':len(tasks),'done':0,'failed':0,'details_failed':0,'saved':0,'ids':[],
-                              'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters)}
+                              'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters),'sources':[]}
             worker=threading.Thread(target=self._run,args=(ident,tasks,dict(filters)),daemon=True)
             self.threads[ident]=worker;worker.start()
         return ident
@@ -113,6 +114,7 @@ class SearchManager:
     def _run(self,ident,tasks,filters):
         for provider,slug,options in tasks:
             with self.lock:self.jobs[ident].update(current=provider+'/'+slug,detail_done=0,detail_total=0)
+            result={'provider':provider,'slug':slug,'status':'failed','matched':None}
             try:
                 def progress(done,total):
                     with self.lock:self.jobs[ident].update(detail_done=done,detail_total=total)
@@ -129,16 +131,19 @@ class SearchManager:
                 with self.lock:
                     self.jobs[ident]['ids']=sorted(set(self.jobs[ident]['ids'])|set(ids))
                     self.jobs[ident]['saved']=len(self.jobs[ident]['ids'])
+                result.update(status='partial' if not getattr(rows,'complete',True) or detail_failed else 'ok',matched=len(ids))
             except Exception as exc:
                 LOG.warning('Falha na consulta %s/%s: %s',provider,slug,type(exc).__name__)
                 with self.lock:self.jobs[ident]['failed']+=1
             finally:
-                with self.lock:self.jobs[ident]['done']+=1
+                with self.lock:
+                    self.jobs[ident]['sources'].append(result)
+                    self.jobs[ident]['done']+=1
         with self.lock:self.jobs[ident].update(status='completed',current='Consulta concluída')
 
     def status(self,ident):
         with self.lock:
-            return dict(self.jobs[ident]) if ident in self.jobs else None
+            return copy.deepcopy(self.jobs[ident]) if ident in self.jobs else None
 
     def wait(self,ident,timeout=None):
         with self.lock:thread=self.threads.get(ident)
