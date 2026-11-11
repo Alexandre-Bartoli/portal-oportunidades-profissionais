@@ -86,7 +86,7 @@ O produto final terá escolha entre **estágio, emprego ou vagas temporárias**,
 
 Os adaptadores experimentais Gupy, Sólides, Workable e Remotive, os limites de consulta, as condições de uso ainda pendentes e a revisão não destrutiva de duplicatas estão descritos em [avaliação de fontes](docs/AVALIACAO_FONTES_2026_11.md). As fontes novas não são ativadas automaticamente. A migração aditiva SQLite chega à versão 4; faça backup antes de atualizar.
 
-Adaptações do Radar de Vagas: leitura limitada de detalhes Gupy e conector experimental InHire por empresa. Não há empresa InHire configurada. As condições e limites constam na avaliação de fontes; o projeto de referência e sua licença MIT estão creditados nela.
+Adaptações do Radar de Vagas: leitura limitada de detalhes Gupy e conector experimental InHire por empresa. As páginas da dti digital e da Movecta estão configuradas para consulta experimental, com revisão de uso pendente. A InHire consulta até 50 detalhes por empresa em cada coleta e informa cobertura parcial. O país é reconhecido como Brasil apenas quando a localização termina com o código BR. As condições e limites constam na avaliação de fontes; o projeto de referência e sua licença MIT estão creditados nela.
 
 A Gupy consulta até cinco páginas de 25 anúncios por categoria e prioriza até três detalhes ainda não enriquecidos por coleta. A cobertura é parcial. Os filtros geográficos aceitam siglas ou nomes completos de estados com país confirmado como Brasil; nomes de cidades sozinhos não definem o país.
 

@@ -1,3 +1,4 @@
+# Inclui verificacao das fontes InHire configuradas.
 name: Homologacao isolada das vagas
 on:
   workflow_dispatch:

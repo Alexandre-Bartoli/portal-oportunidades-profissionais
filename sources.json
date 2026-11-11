@@ -71,6 +71,22 @@
       "slug": "feed",
       "enabled": false,
       "note": "Experimental: revisar atribuição, acesso e condições antes de ativar"
+    },
+    {
+      "provider": "inhire",
+      "slug": "dtidigital",
+      "enabled": true,
+      "experimental_access": true,
+      "region": "BR",
+      "note": "Consulta experimental ativada; revisão de uso pendente"
+    },
+    {
+      "provider": "inhire",
+      "slug": "movecta",
+      "enabled": true,
+      "experimental_access": true,
+      "region": "BR",
+      "note": "Consulta experimental ativada; revisão de uso pendente"
     }
   ]
 }
