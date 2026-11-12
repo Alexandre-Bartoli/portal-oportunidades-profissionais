@@ -191,7 +191,7 @@ def select_gupy_details(slug, raws, limit=3):
  old=[r for r in raws if r['id'] in enriched]
  return (new+old)[:limit]
 
-def fetch_source(provider,slug):
+def fetch_source(provider,slug, *, detail_limit=None, query_text='', city='', workplace='', progress_callback=None):
  encoded=urllib.parse.quote(slug,safe='')
  if provider=='inhire':
   from inhire import fetch
@@ -213,19 +213,26 @@ def fetch_source(provider,slug):
   from gupy import fetch, enrich_detail, source_parameters
   contract,state=source_parameters(slug)
   from providers_extra import ListingBatch
-  raws=fetch('',contract=contract,pages=1 if state else 5,limit=25,get_json=get_json,state=state)
+  if not isinstance(query_text,str) or len(query_text)>100 or not isinstance(city,str) or len(city)>150:
+   raise ValueError('Filtro de busca inválido')
+  raws=fetch(query_text,contract=contract,pages=1 if state else 5,limit=25,get_json=get_json,state=state,city=city,workplace=workplace)
   # Detalhes limitados por rodada. Falhas individuais preservam a listagem.
   detail_ok=0
-  selected=select_gupy_details(slug,raws,10 if state else 3)
+  if detail_limit is not None and (type(detail_limit) is not int or not 1<=detail_limit<=10):
+   raise ValueError('Limite de detalhes Gupy inválido')
+  selected=select_gupy_details(slug,raws,detail_limit if detail_limit is not None else (10 if state else 3))
+  if progress_callback is not None:progress_callback(0,len(selected))
   indices={raw['id']:i for i,raw in enumerate(raws)}
-  for raw in selected:
+  for index,raw in enumerate(selected):
    try:
     raws[indices[raw['id']]]=enrich_detail(raw,get_gupy_detail(raw['url']))
     detail_ok+=1
    except (ValueError, TypeError, KeyError, UnicodeError, urllib.error.URLError, TimeoutError, OSError): pass
+   if progress_callback is not None:progress_callback(index+1,len(selected))
   batch=ListingBatch([job for raw in raws if (job:=make_job(provider,slug,raw)) is not None],
                       complete=False, raw_count=getattr(raws, 'raw_count', None))
   batch.details_attempted=len(selected);batch.details_succeeded=detail_ok
+  batch.pages_fetched=raws.pages_fetched;batch.page_limit=raws.page_limit
   batch.duplicate_items=raws.duplicate_items;batch.skipped_invalid_url=raws.skipped_invalid_url
   return batch
  if provider in ('smartrecruiters','breezy'):
@@ -412,7 +419,7 @@ def stats():
  with connect() as db:
   return dict(db.execute('SELECT active,COUNT(*) FROM jobs WHERE demo=0 GROUP BY active').fetchall())
 
-def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, region='', mode='', area='', offset=0, uf='', municipality='', radius_km=None, published_days=''):
+def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, region='', mode='', area='', offset=0, uf='', municipality='', radius_km=None, published_days='', only_ids=None):
  import math
  from geografia import catalog, distance_km
  cities=catalog()[0]
@@ -433,6 +440,9 @@ def query(q='',country='',kind='internship',limit=30,exclude_demo=False, *, regi
  if not 0<=offset<=10000:raise ValueError('Página inválida')
  init();limit=max(1,min(int(limit),100))
  statement='SELECT * FROM jobs WHERE active=1';args=[]
+ if only_ids is not None:
+  if not isinstance(only_ids,list) or len(only_ids)>10000 or any(not isinstance(x,str) or len(x)>128 for x in only_ids):raise ValueError('Identificadores inválidos')
+  statement+=' AND id IN (SELECT value FROM json_each(?))';args.append(json.dumps(only_ids))
  if exclude_demo:statement+=' AND demo=0'
  if q:
   statement+=' AND (lower(title) LIKE ? OR lower(description) LIKE ? OR lower(areas) LIKE ?)'

@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest.mock import patch
 import urllib.error
 import core
+import automatico
+import json
 from automatico import collect_once
 
 
@@ -20,11 +22,19 @@ class LifecycleTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
         self.original_db=core.DB
+        self.original_base=automatico.BASE
+        self.original_state=automatico.STATE
+        automatico.BASE=Path(self.tmp.name)
+        automatico.STATE=automatico.BASE/'data'/'ultima_coleta.json'
+        (automatico.BASE/'sources.json').write_text(json.dumps({'sources':[
+            {'provider':'lever','slug':'empresa-teste','enabled':True}]}))
         core.DB=Path(self.tmp.name)/'jobs.sqlite3'
         core.init()
 
     def tearDown(self):
         core.DB=self.original_db
+        automatico.BASE=self.original_base
+        automatico.STATE=self.original_state
         self.tmp.cleanup()
 
     def test_source_lifecycle_two_successful_misses(self):

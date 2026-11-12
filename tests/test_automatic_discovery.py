@@ -14,8 +14,10 @@ class DiscoveryRuntimeTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory()
         self.original_db=core.DB
         self.original_base=automatico.BASE
+        self.original_state=automatico.STATE
         core.DB=Path(self.tmp.name)/'jobs.sqlite3'
         automatico.BASE=Path(self.tmp.name)
+        automatico.STATE=automatico.BASE/'data'/'ultima_coleta.json'
         (automatico.BASE/'sources.json').write_text(json.dumps({'sources':[
             {'provider':'lever','slug':'old','enabled':True},
             {'provider':'smartrecruiters','slug':'new','enabled':False}]}),encoding='utf-8')
@@ -23,6 +25,7 @@ class DiscoveryRuntimeTests(unittest.TestCase):
     def tearDown(self):
         core.DB=self.original_db
         automatico.BASE=self.original_base
+        automatico.STATE=self.original_state
         self.tmp.cleanup()
 
     def job(self):

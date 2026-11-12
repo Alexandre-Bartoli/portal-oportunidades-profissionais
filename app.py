@@ -1,6 +1,8 @@
 import html
 import json
+import os
 import sys
+import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -10,7 +12,16 @@ from automatico import collect_once, start_scheduler, status as collection_statu
 from signals import analyze
 
 STAGING_MODE = False
-RADIUS_MESSAGES = frozenset({'Selecione um município para usar o raio de distância.', 'Informe um raio entre 0 e 2000 km.'})
+RADIUS_MESSAGES = frozenset({'Selecione um município para usar o raio de distância.', 'Informe um raio entre 0 e 2000 km.',
+ 'Busca expirada ou indisponível. Faça uma nova pesquisa.', 'A busca ainda está em andamento.'})
+_search_lock=threading.Lock()
+
+def search_manager(server):
+ with _search_lock:
+  if not hasattr(server,'search_manager'):
+   from busca_online import SearchManager
+   server.search_manager=SearchManager()
+  return server.search_manager
 
 def filter_message(error):
  return str(error) if str(error) in RADIUS_MESSAGES else 'Confira os filtros e tente novamente.'
@@ -39,6 +50,12 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   if not local_host_allowed(self):return self.response('Origem de acesso inválida','text/plain',403)
   u=urllib.parse.urlparse(self.path);p=urllib.parse.parse_qs(u.query)
+  if u.path=='/busca-progresso':
+   from interface_publica import render_progress
+   ident=p.get('id',[''])[0]
+   state=search_manager(self.server).status(ident)
+   if not state:return self.response('Busca não encontrada','text/plain',404)
+   return self.response(render_progress(state,ident),'text/html')
   if u.path in ('/admin','/api/admin','/api/collection-status','/api/staging-status'):
    import admin
    result=admin.authenticate(self)
@@ -93,10 +110,20 @@ class Handler(BaseHTTPRequestHandler):
   if kind not in ('internship','employment','temporary','all'):kind='internship'
   region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
   uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0];published_days=p.get('published_days',[''])[0]
+  search_id=p.get('search_id',[''])[0]
+  search=None
+  loading_cities=p.get('load_cities',[''])[0]=='1'
+  if loading_cities:municipality=''
   error_message=''
   try:
    offset=int(p.get('offset',[0])[0])
-   records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset,uf=uf,municipality=municipality,radius_km=radius,published_days=published_days)
+   only_ids=None
+   if search_id:
+    search=search_manager(self.server).status(search_id)
+    if not search:raise ValueError('Busca expirada ou indisponível. Faça uma nova pesquisa.')
+    if search['status']!='completed':raise ValueError('A busca ainda está em andamento.')
+    only_ids=search['ids']
+   records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset,uf=uf,municipality=municipality,radius_km='' if loading_cities else radius,published_days=published_days,only_ids=only_ids)
   except ValueError as error:
    error_message=filter_message(error);records=[];offset=0
   has_more=len(records)>30;records=records[:30]
@@ -111,16 +138,64 @@ class Handler(BaseHTTPRequestHandler):
   for target,label in ((max(0,offset-30),'Página anterior'),(offset+30,'Próxima página')):
    if (label=='Página anterior' and offset>0) or (label=='Próxima página' and has_more and target<=10000):
     params={**filters,'offset':target}
+    if search_id:params['search_id']=search_id
     navigation.append(('/?'+urllib.parse.urlencode(params),label))
-  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json(),error_message=error_message)
+  pending=[]
+  if search and not error_message:
+   from core import job_details
+   for job_id,reasons in list(search.get('pending',{}).items())[:100]:
+    item=job_details(job_id,exclude_demo=STAGING_MODE)
+    if item:pending.append((item,reasons))
+  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json(),error_message=error_message,source_results=search.get('sources',[]) if search and not error_message else [],pending_jobs=pending,pending_total=len(search.get('pending',{})) if search else 0)
   self.response(page,'text/html',status=400 if error_message else 200)
+
+ def do_POST(self):
+  if not local_host_allowed(self):return self.response('Origem de acesso inválida','text/plain',403)
+  if self.path!='/buscar-agora':return self.response('Operação indisponível','text/plain',501)
+  if STAGING_MODE:return self.response('Operação indisponível','text/plain',404)
+  if self.headers.get_all('Origin',[])!=['http://'+self.headers.get('Host','')]:
+   return self.response('Origem de acesso inválida','text/plain',403)
+  lengths=self.headers.get_all('Content-Length',[])
+  if len(lengths)!=1:return self.response('Requisição inválida','text/plain',400)
+  try:length=int(lengths[0])
+  except ValueError:return self.response('Requisição inválida','text/plain',400)
+  if not 0<=length<=8192 or self.headers.get_content_type()!='application/x-www-form-urlencoded':
+   return self.response('Requisição inválida','text/plain',400)
+  try:
+   params=urllib.parse.parse_qs(self.rfile.read(length).decode('utf-8'),max_num_fields=30)
+   def get(name,limit=150):return params.get(name,[''])[0][:limit]
+   filters={'q':get('q',100),'kind':get('kind') or 'all','country':get('country',3),
+            'region':get('region'),'mode':get('mode'),'area':get('area'),
+            'uf':get('uf'),'municipality':get('municipality'),'radius_km':get('radius_km'),
+            'published_days':get('published_days')}
+   kind=filters['kind']
+   if kind not in ('all','internship','employment','temporary'):raise ValueError('Categoria inválida')
+   query(q=filters['q'],country=filters['country'],kind='' if kind=='all' else kind,limit=1,
+         region=filters['region'],mode=filters['mode'],area=filters['area'],uf=filters['uf'],
+         municipality=filters['municipality'],radius_km=filters['radius_km'],published_days=filters['published_days'])
+   ident=search_manager(self.server).start(filters)
+  except (ValueError,UnicodeError) as error:
+   if 'filters' not in locals():return self.response('Requisição inválida','text/plain',400)
+   from geografia import municipalities
+   from interface_publica import render_search
+   from core import AREAS
+   messages=RADIUS_MESSAGES | {'País, região e estado incompatíveis',
+       'Nenhuma fonte disponível para os filtros escolhidos','Já existe uma busca em andamento'}
+   message=str(error) if str(error) in messages else 'Confira os filtros e tente novamente.'
+   states=[(x,x) for x in sorted({r[2] for r in municipalities()})]
+   cities=[(r[0],r[1]) for r in municipalities(filters['uf'])] if filters['uf'] else []
+   return self.response(render_search([],filters,list(AREAS),states,cities,[],False,portals_json(),error_message=message),'text/html',400)
+  self.send_response(303);self.send_header('Location','/busca-progresso?id='+urllib.parse.quote(ident,safe=''))
+  self.send_header('Content-Length','0');self.send_header('Cache-Control','no-store');self.end_headers()
 
 def main():
  cmd=sys.argv[1] if len(sys.argv)>1 else 'help'
  if cmd=='init':init();print('Banco inicializado')
  elif cmd=='demo':demo();print('Quatro anúncios FICTÍCIOS adicionados')
  elif cmd=='serve':
-  init();start_scheduler();print('Acesse http://127.0.0.1:8766');ThreadingHTTPServer(('127.0.0.1',8766),Handler).serve_forever()
+  init()
+  if os.getenv('PORTAL_COLETA_AUTOMATICA')=='1':start_scheduler()
+  print('Acesse http://127.0.0.1:8766');ThreadingHTTPServer(('127.0.0.1',8766),Handler).serve_forever()
  elif cmd=='collect-auto':
   print(json.dumps(collect_once(),ensure_ascii=False,indent=2))
  elif cmd=='stage-collect':

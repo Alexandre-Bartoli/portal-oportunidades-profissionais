@@ -7,7 +7,8 @@ Projeto experimental de pesquisa automática de oportunidades profissionais no B
 ## O que já funciona no código
 
 * Consulta a quadros de vagas Greenhouse, Lever e Ashby, além de Gupy e InHire experimentais, configurados em `sources.json`. As demais fontes experimentais permanecem desabilitadas.
-* Tarefa de atualização periódica enquanto o servidor estiver executando (padrão de 6 horas).
+* Busca nas fontes configuradas ao selecionar os filtros e iniciar a consulta, com acompanhamento do progresso.
+* Atualização periódica opcional enquanto o servidor estiver executando, desativada por padrão.
 * Identificação heurística de possíveis estágios e agrupamento aproximado por área de conhecimento.
 * Armazenamento local SQLite e pesquisa textual por título, descrição e área.
 * Filtro de país pelo código informado nos anúncios.
@@ -35,7 +36,11 @@ python3 app.py serve
 
 Acesse `http://127.0.0.1:8766`.
 
-A tarefa periódica começa ao iniciar o servidor. Para uma consulta imediata separada:
+Na interface, escolha os filtros e clique em Buscar oportunidades. A tela acompanha as fontes consultadas e informa falhas. Os resultados dessa busca incluem somente anúncios recebidos durante a consulta. Algumas fontes são consultadas por quadro completo e filtradas em seguida. A cobertura depende das fontes habilitadas e pode ser parcial.
+
+Na pesquisa por raio, a distância é calculada em linha reta entre sedes municipais. A Gupy consulta o estado escolhido e até quatro estados adicionais com municípios dentro do raio, dando prioridade aos mais próximos. Vagas sem localização suficiente não aparecem nesse filtro.
+
+A atualização periódica é opcional e pode ser ativada antes de iniciar o servidor com `export PORTAL_COLETA_AUTOMATICA=1`. Para uma coleta separada:
 
 ```bash
 python3 app.py collect-auto
@@ -89,9 +94,9 @@ Os adaptadores experimentais Gupy, Sólides, Workable e Remotive, os limites de 
 
 Adaptações do Radar de Vagas: leitura limitada de detalhes Gupy e conector experimental InHire por empresa. As páginas da dti digital e da Movecta estão configuradas para consulta experimental, com revisão de uso pendente. A InHire consulta até 50 detalhes por empresa em cada coleta e informa cobertura parcial. O país é reconhecido como Brasil apenas quando a localização termina com o código BR. As condições e limites constam na avaliação de fontes; o projeto de referência e sua licença MIT estão creditados nela.
 
-A Gupy consulta até cinco páginas de 25 anúncios por categoria e prioriza até três detalhes ainda não enriquecidos por coleta. A cobertura é parcial. Os filtros geográficos aceitam siglas ou nomes completos de estados com país confirmado como Brasil; nomes de cidades sozinhos não definem o país.
+A coleta periódica da Gupy consulta até cinco páginas de 25 anúncios por categoria e prioriza até três detalhes ainda não enriquecidos por coleta. A busca iniciada pela interface consulta até 25 anúncios e cinco detalhes por categoria e estado. A cobertura é parcial. Os filtros geográficos aceitam siglas ou nomes completos de estados com país confirmado como Brasil; nomes de cidades sozinhos não definem o país.
 
-Há também consultas experimentais específicas para Minas Gerais nas três categorias. Cada consulta estadual busca até 25 anúncios por coleta e tenta obter até dez detalhes, priorizando os ainda não enriquecidos. O filtro estadual só mostra vagas cuja localização e país possam ser confirmados. A configuração aceita outras UFs, mas inicialmente apenas Minas Gerais está ativada para essa consulta adicional.
+Há também consultas periódicas experimentais específicas para Minas Gerais nas três categorias. Cada consulta estadual busca até 25 anúncios por coleta e tenta obter até dez detalhes, priorizando os ainda não enriquecidos. Na busca iniciada pela interface, a UF escolhida determina a consulta estadual. O filtro estadual só mostra vagas cuja localização e país possam ser confirmados.
 
 O filtro de data de publicação pode mostrar vagas dos últimos 7, 14, 30 ou 90 dias. Anúncios sem data de publicação continuam aparecendo, pois não é possível determinar sua idade. As buscas por UF e o tratamento de data foram adaptados das práticas do Job Pindorama, cuja licença está em `docs/licencas_referencias/`.
 
