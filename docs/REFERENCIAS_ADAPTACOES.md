@@ -10,7 +10,7 @@ A fase atual investiga e adapta conceitos dos seguintes repositórios:
 * AI Job Search: https://github.com/MadsLorentzen/ai-job-search
   * Conceitos estudados: busca assistida, candidatura humana supervisionada, tratamento de descrições e histórico de candidaturas.
 
-Os repositórios consultados declaram licença MIT. O código `source_quality.py` e `listing_identity.py` foi escrito especificamente para este projeto com implementação independente dos algoritmos, e **não contém cópias diretas** dos arquivos originais. Não se atribui licença MIT ao código integral do nosso portal sem autorização do titular. Caso componentes de terceiros venham a ser copiados, deverão acompanhar seus avisos originais de licença e copyright e ter obrigações verificadas.
+Os repositórios consultados declaram licença MIT. O código `source_quality.py` e `listing_identity.py` foi escrito especificamente para este projeto com implementação independente dos algoritmos, e **não contém cópias diretas** dos arquivos originais. O código próprio do portal é disponibilizado sob a licença MIT; componentes de terceiros conservam os avisos e condições aplicáveis. Caso componentes de terceiros venham a ser copiados, deverão acompanhar seus avisos originais de licença e copyright e ter obrigações verificadas.
 
 ## Implementado nesta fase
 
