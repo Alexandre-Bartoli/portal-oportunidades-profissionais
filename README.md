@@ -105,7 +105,7 @@ Este servidor liga somente em `127.0.0.1`; **não publique diretamente na Intern
 
 ## Licenciamento
 
-**A licença de redistribuição ainda não foi definida pelo titular.** Não foi incluído um arquivo `LICENSE` para evitar atribuir uma licença sem autorização. Recomenda-se avaliar a licença MIT para código próprio, depois de verificar a origem e as obrigações de todos os componentes.
+O código próprio do projeto é disponibilizado sob a [licença MIT](LICENSE). Componentes de terceiros mantêm seus avisos de autoria e licença em [licenças das referências](docs/licencas_referencias/). A licença do software não concede direitos sobre anúncios ou dados obtidos de outras plataformas; suas condições de uso devem ser verificadas separadamente.
 
 ## Estado dos testes
 
