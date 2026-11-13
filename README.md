@@ -2,6 +2,8 @@
 
 Projeto experimental de pesquisa automática de oportunidades profissionais no Brasil e no exterior. O objetivo é reunir **estágios, empregos e vagas temporárias** para pessoas de todas as áreas de formação.
 
+A categoria **Voluntariado** consulta quadros habilitados e a listagem pública do Voluntários de forma experimental. A listagem é filtrada localmente por área, localização e modalidade, conforme os dados informados na fonte. Não é uma API documentada e o resultado é parcial. Anúncios com prazo de inscrição vencido são descartados. A Gupy não é consultada para essa categoria. Atados e VOL ainda devem ser pesquisados diretamente; seus filtros não são transmitidos pelo portal. A consulta pública não comprova autorização para redistribuição; condições de uso e disponibilidade devem ser revistas antes de publicação.
+
 > **Estado atual: prova de conceito (versão experimental 0.9).** A Gupy e duas empresas na InHire estão habilitadas experimentalmente, e a revisão de uso continua pendente. A coleta integrada foi verificada em homologação isolada, sem manter um serviço público disponível. A pesquisa geográfica utiliza aproximação entre sedes municipais e possui cobertura parcial.
 
 ## O que já funciona no código

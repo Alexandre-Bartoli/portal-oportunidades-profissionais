@@ -66,6 +66,8 @@ def classify(title,description=''):
 def category(title, description='', employment_type=''):
  """Classificação conservadora em três tipos; desconhecido fica em revisão."""
  code=normalize_text(employment_type).strip()
+ if code in ('volunteer','voluntary','voluntario','voluntaria','voluntariado'):
+  return 'volunteer'
  if code in ('vacancy_type_internship','internship','intern','estagio'):
   return 'internship'
  if code in ('vacancy_type_temporary','temporary','temporario','fixed term'):
@@ -73,6 +75,7 @@ def category(title, description='', employment_type=''):
  if code in ('vacancy_type_effective','effective','clt','permanent','full-time','full time','fulltime','part-time','part time','parttime','pj','fixed-term permanent'):
   return 'employment'
  t=normalize_text(title)
+ if not code and re.match(r'^(voluntario|voluntaria|volunteer)\b',t):return 'volunteer'
  if WORDS.search(t):return 'internship'
  if re.search(r'\b(temporario|temporaria|temporary|seasonal|sazonal)\b',t):return 'temporary'
  if re.search(r'\b(trainee|aprendiz|voluntario|bolsa de pesquisa)\b',t):return 'other'
@@ -98,7 +101,7 @@ def make_job(provider,source,raw):
   extid=str(raw.get('id') or raw.get('jobUrl') or '')
   address=raw.get('address') or {};postal=address.get('postalAddress') or {}
   country=postal.get('addressCountry');mode={'Remote':'remote','Hybrid':'hybrid','OnSite':'onsite'}.get(raw.get('workplaceType'),'unknown')
- elif provider in ('smartrecruiters','breezy','solides','remotive','workable','inhire'):
+ elif provider in ('smartrecruiters','breezy','solides','remotive','workable','inhire','voluntarios'):
   title=raw.get('title','');description=clean(raw.get('description',''));url=raw.get('url','')
   location=raw.get('location','');extid=str(raw.get('id',''));country=raw.get('country')
   mode=raw.get('mode','unknown')
@@ -110,7 +113,7 @@ def make_job(provider,source,raw):
  country=normalize_country(country)
  if not title or not url or not url.startswith('https://'): return None
  employment = str(raw.get('employmentType') or (raw.get('categories') or {}).get('commitment') or '')
- kind = raw.get('kind') if provider in ('gupy','smartrecruiters','breezy','solides','remotive','workable','inhire') else category(title,description,employment)
+ kind = raw.get('kind') if provider in ('gupy','smartrecruiters','breezy','solides','remotive','workable','inhire','voluntarios') else category(title,description,employment)
  if kind=='other':return None
  review='review'
  fingerprint=hashlib.sha256((provider+'|'+source+'|'+extid+'|'+url).encode()).hexdigest()
@@ -193,6 +196,10 @@ def select_gupy_details(slug, raws, limit=3):
 
 def fetch_source(provider,slug, *, detail_limit=None, query_text='', city='', workplace='', progress_callback=None):
  encoded=urllib.parse.quote(slug,safe='')
+ if provider=='voluntarios':
+  if slug!='publico':raise ValueError('Identificador de fonte inválido')
+  from voluntarios_publico import fetch
+  return fetch()
  if provider=='inhire':
   from inhire import fetch
   from providers_extra import ListingBatch

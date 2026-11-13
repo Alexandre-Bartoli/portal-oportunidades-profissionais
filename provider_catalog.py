@@ -4,6 +4,8 @@
 `experimental` indica que a coleta real ainda não foi validada para a plataforma.
 """
 CATALOG = [
+    {'provider': 'voluntarios', 'scope': 'brazil_volunteering', 'experimental': True,
+     'endpoint': 'voluntarios.com.br', 'configured_automatically': False},
     {'provider': 'inhire', 'scope': 'companies', 'experimental': True,
      'endpoint': 'api.inhire.app', 'configured_automatically': False},
     {'provider': 'greenhouse', 'scope': 'companies', 'experimental': True,
