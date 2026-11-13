@@ -166,7 +166,7 @@ class SearchManager:
             try:
                 def progress(done,total):
                     with self.lock:self.jobs[ident].update(detail_done=done,detail_total=total)
-                extra={'progress_callback':progress} if provider=='gupy' else {}
+                extra={'progress_callback':progress} if provider in ('gupy','voluntarios') else {}
                 rows=core.fetch_source(provider,slug,**options,**extra)
                 with self.lock:
                     self._expire(ident)
