@@ -121,7 +121,7 @@ class Handler(BaseHTTPRequestHandler):
    if search_id:
     search=search_manager(self.server).status(search_id)
     if not search:raise ValueError('Busca expirada ou indisponível. Faça uma nova pesquisa.')
-    if search['status']!='completed':raise ValueError('A busca ainda está em andamento.')
+    if search['status']=='running':raise ValueError('A busca ainda está em andamento.')
     only_ids=search['ids']
    records=query(q,country,kind='' if kind=='all' else kind,exclude_demo=STAGING_MODE,region=region,mode=mode,area=area,limit=31,offset=offset,uf=uf,municipality=municipality,radius_km='' if loading_cities else radius,published_days=published_days,only_ids=only_ids)
   except ValueError as error:

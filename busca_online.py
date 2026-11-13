@@ -5,6 +5,7 @@ import logging
 import re
 import secrets
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 import core
@@ -118,31 +119,57 @@ def _classify(job, filters):
 
 
 class SearchManager:
-    def __init__(self):
+    def __init__(self, timeout=900):
         self.lock=threading.Lock();self.jobs={};self.threads={}
+        self.timeout=timeout
+
+    def _expire(self, ident):
+        job=self.jobs.get(ident)
+        if job and job['status']=='running' and time.monotonic()-job['started_monotonic']>self.timeout:
+            job.update(status='failed',current='Tempo de consulta esgotado',failed=job['failed']+1)
+
+    def _worker(self, ident, tasks, filters):
+        try:
+            self._run(ident,tasks,filters)
+        except BaseException as exc:
+            LOG.error('Busca interrompida: %s',type(exc).__name__)
+            with self.lock:
+                job=self.jobs.get(ident)
+                if job and job['status']=='running':job.update(status='failed',current='Consulta interrompida',failed=job['failed']+1)
 
     def start(self,filters):
         tasks=_plan(filters)
         if not tasks:raise ValueError('Nenhuma fonte disponível para os filtros escolhidos')
         with self.lock:
-            if any(j['status']=='running' for j in self.jobs.values()):raise ValueError('Já existe uma busca em andamento')
+            for old in self.jobs:self._expire(old)
+            if any(t.is_alive() for t in self.threads.values()):raise ValueError('Já existe uma busca em andamento')
             self.jobs.clear();self.threads.clear()
             ident=secrets.token_urlsafe(24)
             self.jobs[ident]={'status':'running','total':len(tasks),'done':0,'failed':0,'details_failed':0,'saved':0,'ids':[],
-                              'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters),'sources':[],'pending':{}}
-            worker=threading.Thread(target=self._run,args=(ident,tasks,dict(filters)),daemon=True)
-            self.threads[ident]=worker;worker.start()
+                              'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters),'sources':[],'pending':{},'started_monotonic':time.monotonic()}
+            worker=threading.Thread(target=self._worker,args=(ident,tasks,dict(filters)),daemon=True)
+            self.threads[ident]=worker
+            try:worker.start()
+            except Exception:
+                self.jobs.clear();self.threads.clear()
+                raise
         return ident
 
     def _run(self,ident,tasks,filters):
         for provider,slug,options in tasks:
-            with self.lock:self.jobs[ident].update(current=provider+'/'+slug,detail_done=0,detail_total=0)
+            with self.lock:
+                self._expire(ident)
+                if self.jobs[ident]['status']!='running':return
+                self.jobs[ident].update(current=provider+'/'+slug,detail_done=0,detail_total=0)
             result={'provider':provider,'slug':slug,'status':'failed','matched':None}
             try:
                 def progress(done,total):
                     with self.lock:self.jobs[ident].update(detail_done=done,detail_total=total)
                 extra={'progress_callback':progress} if provider=='gupy' else {}
                 rows=core.fetch_source(provider,slug,**options,**extra)
+                with self.lock:
+                    self._expire(ident)
+                    if self.jobs[ident]['status']!='running':return
                 detail_failed=max(0,getattr(rows,'details_attempted',0)-getattr(rows,'details_succeeded',0))
                 with self.lock:self.jobs[ident]['details_failed']+=detail_failed
                 classified=[(job,_classify(job,filters)) for job in rows]
@@ -168,10 +195,12 @@ class SearchManager:
                 with self.lock:
                     self.jobs[ident]['sources'].append(result)
                     self.jobs[ident]['done']+=1
-        with self.lock:self.jobs[ident].update(status='completed',current='Consulta concluída')
+        with self.lock:
+            if self.jobs[ident]['status']=='running':self.jobs[ident].update(status='completed',current='Consulta concluída')
 
     def status(self,ident):
         with self.lock:
+            self._expire(ident)
             return copy.deepcopy(self.jobs[ident]) if ident in self.jobs else None
 
     def wait(self,ident,timeout=None):

@@ -114,7 +114,7 @@ def render_progress(state, ident):
     detail_total=state.get('detail_total',0);detail_done=state.get('detail_done',0)
     fraction=min(99,round(100*detail_done/detail_total)) if running and detail_total else 0
     value=done*100+fraction
-    status='Consultando '+esc(state['current']) if running else 'Consulta concluída'
+    status='Consultando '+esc(state['current']) if running else ('Consulta interrompida' if state['status']=='failed' else 'Consulta concluída')
     details=('<p>Não foi possível concluir '+str(state['failed'])+' consulta(s). Os resultados incluem apenas as fontes que responderam.</p>' if state['failed'] else '')
     if not running:
         details+='<p>'+str(state['saved'])+' oportunidade(s) encontradas nesta consulta.</p>'
