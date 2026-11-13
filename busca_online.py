@@ -107,7 +107,8 @@ def _classify(job, filters):
     if requested and mode!='unknown' and mode!=requested:return None
     if requested=='unknown' and mode!='unknown':return None
     missing=[]
-    if not country:missing.append('País não confirmado')
+    remote_without_geo = mode=='remote' and not (wanted or region or uf or filters.get('municipality') or filters.get('radius_km'))
+    if not country and not remote_without_geo:missing.append('País não confirmado')
     if mode=='unknown':missing.append('Modalidade não informada')
     cities=catalog()[0];code=job.get('geo_municipio')
     if uf and code in cities:
@@ -115,7 +116,7 @@ def _classify(job, filters):
         if radius and distance_km(city,code)>float(radius):return None
         if not radius and city and code!=city:return None
         if not city and cities[code][2]!=uf:return None
-    if not job.get('location') or (uf and code not in cities):missing.append('Localização insuficiente para confirmar a região')
+    if not remote_without_geo and (not job.get('location') or (uf and code not in cities)):missing.append('Localização insuficiente para confirmar a região')
     return missing
 
 
