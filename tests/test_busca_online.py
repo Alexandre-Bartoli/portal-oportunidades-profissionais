@@ -181,9 +181,21 @@ class BuscaOnlineTests(unittest.TestCase):
         self.assertIn('Localização insuficiente para confirmar a região',result)
         self.assertIn('País não confirmado',result)
 
+    def test_country_filter_does_not_require_city_for_known_country(self):
+        from busca_online import _classify
+        job={'kind':'internship','country':'BR','mode':'remote','title':'Estágio','description':'','areas':[],'location':'','geo_municipio':None}
+        filters=self.filters(kind='internship',uf='',country='BR',region='brazil',mode='remote')
+        self.assertEqual(_classify(job,filters),[])
+        unknown=dict(job,country=None)
+        self.assertEqual(_classify(unknown,filters),['País não confirmado'])
+
     def test_course_suggestion_uses_known_area_without_personal_data(self):
         from busca_online import course_area
         self.assertEqual(course_area('informatica_internet'),'Tecnologia')
+        self.assertEqual(course_area('sistemas_informacao'),'Tecnologia')
+        self.assertEqual(course_area('sistemas_internet'),'Tecnologia')
+        self.assertEqual(course_area('psicologia'),'Saúde')
+        self.assertIn('Saúde',core.areas_for('Psicólogo',''))
         self.assertEqual(course_area(''),'')
         with self.assertRaises(ValueError):course_area('curso_inexistente')
 
