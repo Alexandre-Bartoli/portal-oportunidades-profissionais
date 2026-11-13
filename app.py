@@ -146,7 +146,7 @@ class Handler(BaseHTTPRequestHandler):
    for job_id,reasons in list(search.get('pending',{}).items())[:100]:
     item=job_details(job_id,exclude_demo=STAGING_MODE)
     if item:pending.append((item,reasons))
-  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json(),error_message=error_message,source_results=search.get('sources',[]) if search and not error_message else [],pending_jobs=pending,pending_total=len(search.get('pending',{})) if search else 0)
+  page=render_search(records,filters,list(AREAS),states,cities,navigation,STAGING_MODE,portals_json(),error_message=error_message,source_results=search.get('sources',[]) if search and not error_message else [],pending_jobs=pending,pending_total=len(search.get('pending',{})) if search else 0,cached_at=search.get('cached_at') if search and not error_message else None)
   self.response(page,'text/html',status=400 if error_message else 200)
 
  def do_POST(self):
