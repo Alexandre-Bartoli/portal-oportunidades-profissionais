@@ -109,6 +109,28 @@ class BuscaOnlineTests(unittest.TestCase):
         unknown={**base,'mode':'unknown'}
         self.assertIn('Modalidade não informada',_classify(unknown,self.filters(mode='remote')))
 
+    def test_remote_volunteer_without_location_appears_in_unrestricted_search(self):
+        from voluntarios_publico import parse_list
+        from datetime import date
+        page='''<table><thead><tr><th>Vaga</th><th>Área de trabalho na vaga</th><th>Modo de trabalho</th><th>Local</th><th>Causa</th><th>Inscrições</th></tr></thead><tbody><tr><td><a href="/vaga/123-456-789">Voluntário remoto</a></td><td>Comunicação</td><td>Remoto</td><td>-</td><td>Educação</td><td>01/01/2026 a 31/12/2026</td></tr></tbody></table>'''
+        rows=parse_list(page,today=date(2026,11,13))
+        config={'sources':[{'provider':'voluntarios','slug':'publico','enabled':True,'experimental_access':True,'region':'BR'}]}
+        (self.root/'sources.json').write_text(json.dumps(config))
+        with patch('core.fetch_source',return_value=rows):
+            ident=self.manager.start(self.filters(kind='volunteer',mode='remote',region='',uf=''))
+            self.manager.wait(ident,3)
+        state=self.manager.status(ident)
+        found=core.query(kind='volunteer',mode='remote',only_ids=state['ids'])
+        self.assertEqual([job['title'] for job in found],['Voluntário remoto'])
+        self.assertEqual(state['pending'],{})
+
+    def test_remote_without_location_remains_pending_with_geographic_filter(self):
+        from busca_online import _classify
+        job={'kind':'volunteer','country':None,'mode':'remote','title':'Voluntário','description':'','areas':[],'location':'','geo_municipio':None}
+        result=_classify(job,self.filters(kind='volunteer',mode='remote'))
+        self.assertIn('Localização insuficiente para confirmar a região',result)
+        self.assertIn('País não confirmado',result)
+
     def test_search_resolves_existing_duplicate_to_persisted_identity(self):
         raw={'id':'77','title':'Analista','kind':'employment','country':'BR',
              'url':'https://empresa.gupy.io/jobs/77','location':'Barbacena, MG','mode':'onsite'}
