@@ -47,7 +47,7 @@ def render_detail(item, link, link_label, flags):
     return shell_start(item['title'])+'<main class="wrap detail-wrap"><a class="back-link" href="/">← Voltar à pesquisa</a><article class="detail-box"><span class="section-kicker">Detalhes da oportunidade</span><h1>'+value(item['title'])+'</h1><p class="detail-notice">'+notice+'</p><div class="detail-info">'+facts+'</div><h2>Sobre a vaga</h2><div class="detail-description">'+value(item.get('description'))+'</div>'+warning+action+'<p class="detail-notice">Última verificação na coleta: '+value(item.get('last_seen'))+'</p></article></main>'+footer()
 
 
-def render_search(jobs, filters, areas, states, cities, navigation, staging, portals=(), error_message='', source_results=(),pending_jobs=(),pending_total=0):
+def render_search(jobs, filters, areas, states, cities, navigation, staging, portals=(), error_message='', source_results=(),pending_jobs=(),pending_total=0,cached_at=None):
     categories=[('all','Todas'),('internship','Estágio'),('employment','Emprego'),('temporary','Temporária'),('volunteer','Voluntariado')]
     choices=''.join('<label class="choice"><input type="radio" name="kind" value="'+value+'"'+(' checked' if filters['kind']==value else '')+'><span>'+label+'</span></label>' for value,label in categories)
     panel='<aside class="filter-panel"><div class="panel-top"><h2>Refine sua busca</h2><p>Escolha o que faz sentido para você.</p></div><form class="filter-body" method="get" action="/">'
@@ -81,6 +81,7 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     notice='Ambiente de homologação. Os anúncios são coletados automaticamente e podem precisar de revisão.' if staging else 'Protótipo local. Os resultados dependem das fontes consultadas e podem ser parciais. Confira as informações no anúncio original.'
     alert='<div class="notice" role="alert">'+esc(error_message)+'</div>' if error_message else ''
     alert+=render_source_results(source_results)
+    if cached_at:alert+='<div class="notice">Resultados armazenados da consulta realizada em '+esc(cache_date(cached_at))+'. Uma nova consulta será feita após 24 horas.</div>'
     if filters['kind']=='volunteer':
         alert+='<section class="notice"><strong>Portais de voluntariado</strong><p>O Voluntários é consultado experimentalmente. Atados e VOL não são consultados automaticamente; abra os sites para aplicar seus filtros.</p><p><a href="https://www.atados.com.br/vagas" target="_blank" rel="noopener noreferrer">Atados ↗</a> · <a href="https://vol.org.br/" target="_blank" rel="noopener noreferrer">VOL ↗</a> · <a href="https://voluntarios.com.br/vaga/busca" target="_blank" rel="noopener noreferrer">Voluntários ↗</a></p></section>'
     pending_html=''
@@ -98,6 +99,13 @@ def render_source_results(results):
     labels={'ok':'Consulta concluída','partial':'Resultado parcial','failed':'Falha na consulta'}
     items=''.join('<li><strong>'+esc(x['provider'])+' / '+esc(x['slug'])+'</strong>: '+esc(labels.get(x['status'],'Indisponível'))+(' · '+str(x['matched'])+' vaga(s) compatível(is)' if x.get('matched') is not None else '')+(' · '+str(x['pages'])+' página(s) consultada(s), limite de '+str(x['page_limit']) if x.get('pages') is not None else '')+(' · A cobertura pode estar incompleta' if x['status']=='partial' else '')+'</li>' for x in results)
     return '<section class="notice" aria-label="Resultado por fonte"><strong>Resultado por fonte</strong><ul>'+items+'</ul><p>A contagem é por consulta e pode incluir a mesma vaga em fontes diferentes. Resultado parcial ou vazio não indica que não existam outras vagas.</p></section>'
+
+
+def cache_date(value):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    try:return datetime.fromisoformat(value).astimezone(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y às %H:%M')+' (horário de Brasília)'
+    except (TypeError,ValueError):return 'horário indisponível'
 
 
 def render_progress(state, ident):
@@ -118,6 +126,7 @@ def render_progress(state, ident):
     fraction=min(99,round(100*detail_done/detail_total)) if running and detail_total else 0
     value=done*100+fraction
     status='Consultando '+esc(state['current']) if running else ('Consulta interrompida' if state['status']=='failed' else 'Consulta concluída')
+    if state.get('cached'):status='Resultados armazenados de '+esc(cache_date(state.get('cached_at'))) + '. Nova consulta após 24 horas.'
     details=('<p>Não foi possível concluir '+str(state['failed'])+' consulta(s). Os resultados incluem apenas as fontes que responderam.</p>' if state['failed'] else '')
     if not running:
         details+='<p>'+str(state['saved'])+' oportunidade(s) encontradas nesta consulta.</p>'
@@ -126,7 +135,7 @@ def render_progress(state, ident):
     action='' if running else '<a class="detail-action" href="'+esc(result_url)+'">Ver resultados</a>'
     body=('<main class="wrap detail-wrap"><article class="detail-box"><h1>Atualizando oportunidades</h1>'
           '<p>'+status+'</p><progress value="'+str(value)+'" max="'+str(total*100)+'" style="width:100%"></progress>'
-          '<p>'+str(done)+' de '+str(total)+' fontes consultadas.</p>'+details+render_source_results(state.get('sources',[]))+action+
+          '<p>'+str(done)+' de '+str(total)+(' fontes na consulta anterior.</p>' if state.get('cached') else ' fontes consultadas.</p>')+details+render_source_results(state.get('sources',[]))+action+
           '<p class="detail-notice">A consulta usa as fontes configuradas para a região escolhida. Algumas enviam todos os anúncios para filtragem no portal. As fontes e o número de anúncios consultados são limitados, por isso pode haver outras vagas. No filtro por raio, são consultados até cinco estados.</p>'
           '</article></main>')
     return header+body+footer()
