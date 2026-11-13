@@ -57,6 +57,7 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     panel+=options('region','Região',filters['region'],[('','Todas as regiões'),('brazil','Brasil'),('international','Exterior')])
     panel+=options('country','País',filters['country'],[('','Todos os países'),('BR','Brasil'),('CA','Canadá'),('US','Estados Unidos'),('GB','Reino Unido'),('DE','Alemanha'),('SA','Arábia Saudita'),('AU','Austrália'),('KR','Coreia do Sul'),('AE','Emirados Árabes Unidos'),('ES','Espanha'),('FR','França'),('NL','Holanda'),('IE','Irlanda'),('IT','Itália'),('JP','Japão'),('PT','Portugal'),('SG','Singapura'),('SE','Suécia')])
     panel+=options('mode','Modalidade',filters['mode'],[('','Todas as modalidades'),('remote','Remota'),('hybrid','Híbrida'),('onsite','Presencial'),('unknown','Não informada')])
+    panel+=options('course','Curso',filters.get('course',''),[('','Todos os cursos'),('informatica_internet','Técnico em Informática para Internet')], 'Ao escolher este curso, a pesquisa usa a área Tecnologia. Confira a relação de cada vaga com sua formação.')
     panel+=options('area','Área sugerida',filters['area'],[('','Todas as áreas')]+[(x,x) for x in areas])
     panel+=options('published_days','Data de publicação',filters.get('published_days',''),[('','Qualquer data'),('7','Últimos 7 dias'),('14','Últimos 14 dias'),('30','Últimos 30 dias'),('90','Últimos 90 dias')], 'Sem data informada, a vaga continua aparecendo.')
     panel+=options('uf','Estado',filters['uf'],[('','Todos os estados')]+states)
@@ -97,14 +98,14 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
 def render_source_results(results):
     if not results:return ''
     labels={'ok':'Consulta concluída','partial':'Resultado parcial','failed':'Falha na consulta'}
-    items=''.join('<li><strong>'+esc(x['provider'])+' / '+esc(x['slug'])+'</strong>: '+esc(labels.get(x['status'],'Indisponível'))+(' · '+str(x['matched'])+' vaga(s) compatível(is)' if x.get('matched') is not None else '')+(' · '+str(x['pages'])+' página(s) consultada(s), limite de '+str(x['page_limit']) if x.get('pages') is not None else '')+(' · A cobertura pode estar incompleta' if x['status']=='partial' else '')+'</li>' for x in results)
+    items=''.join('<li><strong>'+esc(x['provider'])+' / '+esc(x['slug'])+'</strong>: '+esc(labels.get(x['status'],'Indisponível'))+(' · '+str(x['matched'])+' vaga(s) compatível(is)' if x.get('matched') is not None else '')+(' · '+str(x['pages'])+' página(s) consultada(s), limite de '+str(x['page_limit']) if x.get('pages') is not None else '')+(' · A cobertura pode estar incompleta' if x['status']=='partial' else '')+(' · Consulta em '+esc(cache_date(x['checked_at']))+(' (dados armazenados)' if x.get('cached') else '') if x.get('checked_at') else '')+(' · Nova consulta disponível após '+esc(cache_date(x['checked_at'],hours=24)) if x.get('checked_at') and x.get('cacheable') else '')+'</li>' for x in results)
     return '<section class="notice" aria-label="Resultado por fonte"><strong>Resultado por fonte</strong><ul>'+items+'</ul><p>A contagem é por consulta e pode incluir a mesma vaga em fontes diferentes. Resultado parcial ou vazio não indica que não existam outras vagas.</p></section>'
 
 
-def cache_date(value):
-    from datetime import datetime
+def cache_date(value,hours=0):
+    from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
-    try:return datetime.fromisoformat(value).astimezone(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y às %H:%M')+' (horário de Brasília)'
+    try:return (datetime.fromisoformat(value)+timedelta(hours=hours)).astimezone(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y às %H:%M')+' (horário de Brasília)'
     except (TypeError,ValueError):return 'horário indisponível'
 
 
