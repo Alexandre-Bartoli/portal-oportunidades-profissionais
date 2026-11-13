@@ -83,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
   if u.path=='/api/jobs':
    try:
     kind=p.get('kind',['internship'])[0]
-    if kind not in ('internship','employment','temporary','all'):return self.response('{"error":"Categoria inválida"}',status=400)
+    if kind not in ('internship','employment','temporary','volunteer','all'):return self.response('{"error":"Categoria inválida"}',status=400)
     result=query(q=p.get('q',[''])[0][:100],country=p.get('country',[''])[0][:3],kind='' if kind=='all' else kind,limit=p.get('limit',[30])[0],exclude_demo=STAGING_MODE,
                  region=p.get('region',[''])[0],mode=p.get('mode',[''])[0],area=p.get('area',[''])[0],offset=p.get('offset',[0])[0],
                  uf=p.get('uf',[''])[0],municipality=p.get('municipality',[''])[0],radius_km=p.get('radius_km',[''])[0],published_days=p.get('published_days',[''])[0])
@@ -107,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
   if u.path!='/':return self.response('Não encontrado','text/plain',404)
   q=p.get('q',[''])[0][:100];country=p.get('country',[''])[0][:3]
   kind=p.get('kind',['internship'])[0]
-  if kind not in ('internship','employment','temporary','all'):kind='internship'
+  if kind not in ('internship','employment','temporary','volunteer','all'):kind='internship'
   region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
   uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0];published_days=p.get('published_days',[''])[0]
   search_id=p.get('search_id',[''])[0]
@@ -169,7 +169,7 @@ class Handler(BaseHTTPRequestHandler):
             'uf':get('uf'),'municipality':get('municipality'),'radius_km':get('radius_km'),
             'published_days':get('published_days')}
    kind=filters['kind']
-   if kind not in ('all','internship','employment','temporary'):raise ValueError('Categoria inválida')
+   if kind not in ('all','internship','employment','temporary','volunteer'):raise ValueError('Categoria inválida')
    query(q=filters['q'],country=filters['country'],kind='' if kind=='all' else kind,limit=1,
          region=filters['region'],mode=filters['mode'],area=filters['area'],uf=filters['uf'],
          municipality=filters['municipality'],radius_km=filters['radius_km'],published_days=filters['published_days'])

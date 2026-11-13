@@ -20,7 +20,7 @@ LOG=logging.getLogger(__name__)
 def _plan(filters):
     kind=filters.get('kind','all');region=filters.get('region','');country=filters.get('country','')
     uf=filters.get('uf','');city_id=filters.get('municipality','');radius=filters.get('radius_km','')
-    if kind not in ('all',*KINDS) or region not in ('','brazil','international'):
+    if kind not in ('all','volunteer',*KINDS) or region not in ('','brazil','international'):
         raise ValueError('Filtros inválidos')
     if country and not re.fullmatch(r'[A-Z]{2}',country):raise ValueError('País inválido')
     cities=catalog()[0];states={row[2] for row in cities.values()}
@@ -34,7 +34,7 @@ def _plan(filters):
     if (uf and (region=='international' or (country and country!='BR'))) or (region=='brazil' and country and country!='BR') or (region=='international' and country=='BR'):
         raise ValueError('País, região e estado incompatíveis')
     config=json.loads((core.BASE/'sources.json').read_text(encoding='utf-8'));validate_sources(config)
-    sources=config['sources'];kinds=list(KINDS) if kind=='all' else [kind]
+    sources=config['sources'];kinds=list(KINDS) if kind=='all' else ([kind] if kind in KINDS else [])
     brazil=bool(uf or country=='BR' or region=='brazil') or not (country or region)
     international=not uf and country!='BR' and region!='brazil'
     tasks=[]

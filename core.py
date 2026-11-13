@@ -66,6 +66,8 @@ def classify(title,description=''):
 def category(title, description='', employment_type=''):
  """Classificação conservadora em três tipos; desconhecido fica em revisão."""
  code=normalize_text(employment_type).strip()
+ if code in ('volunteer','voluntary','voluntario','voluntaria','voluntariado'):
+  return 'volunteer'
  if code in ('vacancy_type_internship','internship','intern','estagio'):
   return 'internship'
  if code in ('vacancy_type_temporary','temporary','temporario','fixed term'):
@@ -73,6 +75,7 @@ def category(title, description='', employment_type=''):
  if code in ('vacancy_type_effective','effective','clt','permanent','full-time','full time','fulltime','part-time','part time','parttime','pj','fixed-term permanent'):
   return 'employment'
  t=normalize_text(title)
+ if not code and re.match(r'^(voluntario|voluntaria|volunteer)\b',t):return 'volunteer'
  if WORDS.search(t):return 'internship'
  if re.search(r'\b(temporario|temporaria|temporary|seasonal|sazonal)\b',t):return 'temporary'
  if re.search(r'\b(trainee|aprendiz|voluntario|bolsa de pesquisa)\b',t):return 'other'

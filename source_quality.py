@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy', 'solides', 'remotive', 'workable', 'inhire'})
-CATEGORY = frozenset({'internship', 'employment', 'temporary'})
+CATEGORY = frozenset({'internship', 'employment', 'temporary', 'volunteer'})
 
 
 def validate_sources(config):

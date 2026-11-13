@@ -48,7 +48,7 @@ def render_detail(item, link, link_label, flags):
 
 
 def render_search(jobs, filters, areas, states, cities, navigation, staging, portals=(), error_message='', source_results=(),pending_jobs=(),pending_total=0):
-    categories=[('all','Todas'),('internship','Estágio'),('employment','Emprego'),('temporary','Temporária')]
+    categories=[('all','Todas'),('internship','Estágio'),('employment','Emprego'),('temporary','Temporária'),('volunteer','Voluntariado')]
     choices=''.join('<label class="choice"><input type="radio" name="kind" value="'+value+'"'+(' checked' if filters['kind']==value else '')+'><span>'+label+'</span></label>' for value,label in categories)
     panel='<aside class="filter-panel"><div class="panel-top"><h2>Refine sua busca</h2><p>Escolha o que faz sentido para você.</p></div><form class="filter-body" method="get" action="/">'
     panel+='<label class="field full"><span class="field-title">Cargo ou palavra-chave</span><input class="control" name="q" type="search" value="'+esc(filters['q'])+'" placeholder="Ex.: psicologia, administração"></label>'
@@ -68,7 +68,7 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     cards=[]
     for job in jobs:
         ident=quote(str(job['id']),safe='');title=esc(job['title']);company=job.get('company') or 'Empresa não informada'
-        kind={'internship':'Estágio','employment':'Emprego','temporary':'Temporária'}.get(job['kind'],'Em revisão')
+        kind={'internship':'Estágio','employment':'Emprego','temporary':'Temporária','volunteer':'Voluntariado'}.get(job['kind'],'Em revisão')
         mode={'remote':'Remoto','hybrid':'Híbrido','onsite':'Presencial'}.get(job.get('mode'),'Modalidade não informada')
         location=job.get('location') or 'Local não informado'; area=', '.join(job.get('areas') or [])
         distance=('<span>Distância aproximada: '+esc(job['distance_km'])+' km</span>') if 'distance_km' in job else ''
@@ -81,11 +81,14 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     notice='Ambiente de homologação. Os anúncios são coletados automaticamente e podem precisar de revisão.' if staging else 'Protótipo local. Os resultados dependem das fontes consultadas e podem ser parciais. Confira as informações no anúncio original.'
     alert='<div class="notice" role="alert">'+esc(error_message)+'</div>' if error_message else ''
     alert+=render_source_results(source_results)
+    if filters['kind']=='volunteer':
+        alert+='<section class="notice"><strong>Outros portais de voluntariado</strong><p>Estes portais não são consultados automaticamente. Abra os sites e selecione seus filtros de área, localização e modalidade em cada um.</p><p><a href="https://www.atados.com.br/vagas" target="_blank" rel="noopener noreferrer">Atados ↗</a> · <a href="https://vol.org.br/" target="_blank" rel="noopener noreferrer">VOL ↗</a> · <a href="https://voluntarios.com.br/" target="_blank" rel="noopener noreferrer">Seja um Voluntário ↗</a></p></section>'
     pending_html=''
     if pending_jobs:
         items=''.join('<li><a href="/vaga?id='+quote(str(job['id']),safe='')+'">'+esc(job['title'])+'</a> · '+esc(job.get('company') or 'Empresa não informada')+'<br>'+esc('; '.join(reasons))+'</li>' for job,reasons in pending_jobs)
         pending_html='<section class="notice"><h3>Vagas com informações a confirmar</h3><p>Não foi possível confirmar todos os dados para a pesquisa. Confira o anúncio original. Exibindo '+str(len(pending_jobs))+' de '+str(pending_total)+'.</p><ul>'+items+'</ul></section>'
     body=shell_start('Portal de Oportunidades')+'<section class="hero"><div class="wrap hero-inner"><div class="eyebrow">Um lugar para descobrir possibilidades</div><h1>Encontre oportunidades<br>para o seu próximo passo.</h1><p>Pesquise vagas de estágio, emprego e trabalho temporário em um só lugar.</p><div class="hero-note">Consulte os detalhes e candidate-se na fonte original.</div></div></section><main class="wrap content">'+panel+'<section aria-labelledby="results-title">'+alert+'<div class="notice">'+notice+'</div><div class="results-head"><div><span class="section-kicker">Explore as vagas</span><h2 id="results-title">Oportunidades para você</h2><p>Resultados de acordo com os filtros selecionados.</p></div><span class="count">'+str(len(jobs))+' nesta página</span></div><div class="job-list">'+cards_html+'</div>'+nav+'<div class="notice" style="margin-top:24px">No filtro por município e raio, a distância em linha reta é aproximada entre sedes municipais. Vagas remotas e vagas sem localização suficiente não aparecem nessa pesquisa.</div>'+directory+'</section></main>'+footer()
+    body=body.replace('Pesquise vagas de estágio, emprego e trabalho temporário em um só lugar.', 'Pesquise oportunidades de estágio, emprego, trabalho temporário e voluntariado.')
     body=body.replace('Vagas remotas e vagas sem localização suficiente não aparecem nessa pesquisa.', 'Vagas sem localização suficiente podem aparecer separadamente para confirmação.')
     return body.replace('<div class="job-list">'+cards_html+'</div>', '<div class="job-list">'+cards_html+'</div>'+pending_html)
 
