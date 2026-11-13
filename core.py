@@ -334,12 +334,33 @@ def init():
   db.execute('CREATE INDEX IF NOT EXISTS ix_aliases_job ON job_aliases(job_id, active)')
 
 
+def _validate_job(job):
+ if not isinstance(job,dict):raise ValueError('Registro de vaga inválido')
+ required={'id':128,'provider':40,'source':150,'external_id':2000,'title':2000,
+           'description':12000,'url':4000,'location':2000,'mode':30,'kind':30,
+           'review_status':40,'last_seen':80}
+ for field,limit in required.items():
+  value=job.get(field)
+  if not isinstance(value,str) or len(value)>limit or '\x00' in value:
+   raise ValueError('Campo inválido no registro: '+field)
+ for field in ('id','provider','source','title','url'):
+  if not job[field].strip():raise ValueError('Campo obrigatório ausente: '+field)
+ if not canonical_url(job['url']):raise ValueError('Endereço de vaga inválido')
+ if not isinstance(job.get('areas'),list) or len(job['areas'])>100 or any(not isinstance(x,str) or len(x)>200 or '\x00' in x for x in job['areas']):
+  raise ValueError('Áreas da vaga inválidas')
+ for field,limit in (('country',2),('company',200),('published_at',40),('geo_municipio',20)):
+  value=job.get(field)
+  if value is not None and (not isinstance(value,str) or len(value)>limit or '\x00' in value):raise ValueError('Campo inválido no registro: '+field)
+
+
 def save(items):
  """Armazena uma vaga por URL canônica, mantendo proveniência por fonte.
 
  Não troca IDs legados. URLs iguais de fontes diferentes compartilham um job_id,
  mas permanecem registradas separadamente em job_aliases.
  """
+ items=list(items)
+ for item in items:_validate_job(item)
  init()
  with connect() as db:
   for j in items:

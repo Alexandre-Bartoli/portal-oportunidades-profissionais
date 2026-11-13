@@ -105,7 +105,8 @@ def start_scheduler(hours=None):
     hours = max(1, min(hours, 168))
     def loop():
         while True:
-            collect_once()
+            try:collect_once()
+            except Exception:LOG.exception('Coleta periódica interrompida; nova tentativa no próximo intervalo')
             stop.wait(hours*3600)
     stop = threading.Event()
     worker = threading.Thread(target=loop, daemon=True, name='coleta-automatica')
