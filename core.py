@@ -199,7 +199,7 @@ def fetch_source(provider,slug, *, detail_limit=None, query_text='', city='', wo
  if provider=='voluntarios':
   if slug!='publico':raise ValueError('Identificador de fonte inválido')
   from voluntarios_publico import fetch
-  return fetch()
+  return fetch(progress_callback=progress_callback)
  if provider=='inhire':
   from inhire import fetch
   from providers_extra import ListingBatch
@@ -386,12 +386,12 @@ def save(items):
     (id,provider,source,external_id,title,description,url,location,country,mode,kind,
      review_status,areas,last_seen,demo,active,misses,first_seen,canonical_url,geo_municipio,company,published_at,detail_enriched)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
-    title=excluded.title, description=CASE WHEN jobs.provider='gupy' AND excluded.provider='gupy' AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN jobs.description ELSE excluded.description END, url=excluded.url,
+    title=excluded.title, description=CASE WHEN jobs.provider IN ('gupy','voluntarios') AND excluded.provider=jobs.provider AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN jobs.description ELSE excluded.description END, url=excluded.url,
     canonical_url=excluded.canonical_url, location=excluded.location,
-    country=CASE WHEN jobs.provider='gupy' AND excluded.provider='gupy' AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN COALESCE(excluded.country,jobs.country) ELSE excluded.country END, mode=excluded.mode, kind=excluded.kind,
-    review_status=excluded.review_status, areas=CASE WHEN jobs.provider='gupy' AND excluded.provider='gupy' AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN jobs.areas ELSE excluded.areas END,
-    last_seen=excluded.last_seen, geo_municipio=CASE WHEN jobs.provider='gupy' AND excluded.provider='gupy' AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN COALESCE(excluded.geo_municipio,jobs.geo_municipio) ELSE excluded.geo_municipio END,
-    detail_enriched=CASE WHEN jobs.provider='gupy' AND excluded.provider='gupy' AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN 1 ELSE excluded.detail_enriched END,
+    country=CASE WHEN jobs.provider IN ('gupy','voluntarios') AND excluded.provider=jobs.provider AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN COALESCE(excluded.country,jobs.country) ELSE excluded.country END, mode=excluded.mode, kind=excluded.kind,
+    review_status=excluded.review_status, areas=CASE WHEN jobs.provider IN ('gupy','voluntarios') AND excluded.provider=jobs.provider AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN jobs.areas ELSE excluded.areas END,
+    last_seen=excluded.last_seen, geo_municipio=CASE WHEN jobs.provider IN ('gupy','voluntarios') AND excluded.provider=jobs.provider AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN COALESCE(excluded.geo_municipio,jobs.geo_municipio) ELSE excluded.geo_municipio END,
+    detail_enriched=CASE WHEN jobs.provider IN ('gupy','voluntarios') AND excluded.provider=jobs.provider AND jobs.detail_enriched=1 AND excluded.detail_enriched=0 THEN 1 ELSE excluded.detail_enriched END,
     company=COALESCE(excluded.company,jobs.company), published_at=COALESCE(excluded.published_at,jobs.published_at),
     active=1, misses=0''',
     (job_id,j['provider'],j['source'],external_id,j['title'],j['description'],j['url'],j['location'],
