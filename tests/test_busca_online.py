@@ -42,6 +42,34 @@ class BuscaOnlineTests(unittest.TestCase):
         self.assertEqual(calls[0][0:2],('gupy','emprego-mg'))
         self.assertEqual(calls[0][2]['detail_limit'],5)
 
+    def test_repeated_search_is_reused_after_restart_until_expiration(self):
+        from busca_online import SearchManager
+        job=core.make_job('gupy','emprego-mg',{'id':'100','title':'Analista','kind':'employment','url':'https://empresa.gupy.io/jobs/100','country':'BR','location':'Barbacena, MG','mode':'onsite'})
+        with patch('core.fetch_source',return_value=ListingBatch([job],complete=False)) as fetch:
+            ident=self.manager.start(self.filters());self.manager.wait(ident,3)
+            first=self.manager.status(ident)
+            self.manager=SearchManager()
+            ident=self.manager.start(self.filters());self.manager.wait(ident,3)
+            second=self.manager.status(ident)
+            self.assertEqual(fetch.call_count,1)
+            self.assertEqual(first['ids'],second['ids'])
+            self.assertTrue(second['cached'])
+            from interface_publica import render_progress
+            self.assertIn('Resultados armazenados',render_progress(second,ident))
+            with core.connect() as db:db.execute('UPDATE search_cache SET created_at=created_at-86401')
+            ident=self.manager.start(self.filters());self.manager.wait(ident,3)
+            self.assertEqual(fetch.call_count,2)
+
+    def test_different_filters_and_failures_do_not_use_cache(self):
+        with patch('core.fetch_source',side_effect=OSError('offline')) as fetch:
+            for _ in range(2):
+                ident=self.manager.start(self.filters());self.manager.wait(ident,3)
+            self.assertEqual(fetch.call_count,2)
+        with patch('core.fetch_source',return_value=ListingBatch([],complete=False)) as fetch:
+            for word in ('analista','professor'):
+                ident=self.manager.start(self.filters(q=word));self.manager.wait(ident,3)
+            self.assertEqual(fetch.call_count,2)
+
     def test_progress_updates_while_a_source_details_jobs(self):
         started=threading.Event();release=threading.Event()
         def fetch(provider,slug,**kwargs):

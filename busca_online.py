@@ -1,9 +1,11 @@
 """Busca pontual de fontes configuradas e acompanhamento em memória."""
 import json
 import copy
+import hashlib
 import logging
 import re
 import secrets
+import sqlite3
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -15,6 +17,36 @@ from source_reviews import pending_technical_review
 
 KINDS={'internship':'estagio','employment':'emprego','temporary':'temporario'}
 LOG=logging.getLogger(__name__)
+CACHE_SECONDS=24*60*60
+
+
+def _cache_key(filters,tasks):
+    data=json.dumps({'version':1,'filters':filters,'tasks':tasks},sort_keys=True,ensure_ascii=False,separators=(',',':'))
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()
+
+
+def _read_cache(key):
+    core.init()
+    with core.connect() as db:
+        db.execute('CREATE TABLE IF NOT EXISTS search_cache (cache_key TEXT PRIMARY KEY, created_at REAL NOT NULL, result TEXT NOT NULL)')
+        row=db.execute('SELECT created_at,result FROM search_cache WHERE cache_key=?',(key,)).fetchone()
+    if not row or not 0 <= time.time()-row[0] < CACHE_SECONDS:return None
+    try:
+        result=json.loads(row[1])
+        if not isinstance(result,dict) or not isinstance(result.get('ids'),list) or not isinstance(result.get('pending'),dict) or not isinstance(result.get('sources'),list):return None
+    except (ValueError,TypeError):return None
+    result['cached_at']=datetime.fromtimestamp(row[0],timezone.utc).isoformat()
+    return result
+
+
+def _write_cache(key,result):
+    core.init()
+    with core.connect() as db:
+        db.execute('CREATE TABLE IF NOT EXISTS search_cache (cache_key TEXT PRIMARY KEY, created_at REAL NOT NULL, result TEXT NOT NULL)')
+        now=time.time()
+        db.execute('DELETE FROM search_cache WHERE created_at < ?', (now-CACHE_SECONDS,))
+        db.execute('INSERT OR REPLACE INTO search_cache(cache_key,created_at,result) VALUES(?,?,?)',
+                   (key,now,json.dumps(result,ensure_ascii=False)))
 
 
 def _plan(filters):
@@ -149,6 +181,13 @@ class SearchManager:
             ident=secrets.token_urlsafe(24)
             self.jobs[ident]={'status':'running','total':len(tasks),'done':0,'failed':0,'details_failed':0,'saved':0,'ids':[],
                               'detail_done':0,'detail_total':0,'current':'Preparando consulta','filters':dict(filters),'sources':[],'pending':{},'started_monotonic':time.monotonic()}
+            key=_cache_key(filters,tasks)
+            try:cached=_read_cache(key)
+            except (sqlite3.Error,OSError,ValueError):
+                LOG.warning('Não foi possível ler pesquisas armazenadas');cached=None
+            if cached:
+                self.jobs[ident].update(cached,status='completed',done=len(tasks),current='Resultados armazenados',cached=True)
+                return ident
             worker=threading.Thread(target=self._worker,args=(ident,tasks,dict(filters)),daemon=True)
             self.threads[ident]=worker
             try:worker.start()
@@ -198,7 +237,15 @@ class SearchManager:
                     self.jobs[ident]['sources'].append(result)
                     self.jobs[ident]['done']+=1
         with self.lock:
-            if self.jobs[ident]['status']=='running':self.jobs[ident].update(status='completed',current='Consulta concluída')
+            if self.jobs[ident]['status']=='running':
+                self.jobs[ident].update(status='completed',current='Consulta concluída')
+                state=self.jobs[ident]
+                cached={name:copy.deepcopy(state[name]) for name in ('ids','pending','sources','saved')}
+                can_cache=not state['failed'] and not state['details_failed']
+            else:can_cache=False
+        if can_cache:
+            try:_write_cache(_cache_key(filters,tasks),cached)
+            except (sqlite3.Error,OSError,ValueError):LOG.warning('Não foi possível armazenar pesquisa')
 
     def status(self,ident):
         with self.lock:
