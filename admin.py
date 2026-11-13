@@ -82,11 +82,11 @@ def dashboard(staging=False):
     config = _read_json(core.BASE / 'sources.json')
     if not config:
         raise ValueError('Configuração de fontes indisponível')
-    reviews = review_report(config)
     db_path, report_path = stage_paths()
     data_dir = db_path.parent if staging else core.BASE / 'data'
     status_file = report_path if staging else data_dir / 'ultima_coleta.json'
     status = _read_json(status_file) or {}
+    reviews = review_report(config)
     audits = {x.get('source'): x for x in status.get('sources', []) if isinstance(x, dict)}
     review_by_source = {x['source']: x for x in reviews['sources']}
     sources = []
@@ -108,6 +108,8 @@ def dashboard(staging=False):
     links = _read_json(data_dir / 'auditoria_links.json') if staging else None
     backups = backup_list(db_path.parent / 'backups')
     history = recent()
+    from admin_history import source_health
+    health = source_health()
     duplicate_review = None
     if core.DB.is_file():
         try:
@@ -138,7 +140,7 @@ def dashboard(staging=False):
     elif status.get('status') == 'unavailable':
         alerts.append('Relatório da última coleta indisponível ou inválido')
     return {'mode': 'homologacao' if staging else 'local', 'sources': sources,
-            'last_collection': last, 'history': history if history is not None else 'not_recorded',
+            'last_collection': last, 'history': history if history is not None else 'not_recorded', 'source_health':health,
             'suggestions_count': len(candidates) if isinstance(candidates,list) else None,
             'suggestions': candidate_rows,
             'link_check': {'checked_at': links.get('checked_at'), 'sampled': links.get('sampled'),
@@ -176,6 +178,8 @@ def render(report):
     suggestions = report.get('suggestions')
     suggestion_html = ('<ul>'+''.join('<li>'+e(x['source'])+' | '+e(x['status'])+'</li>' for x in suggestions)+'</ul>') if suggestions else '<p>Não registrado ou sem sugestões.</p>'
     alert_html = '<ul>'+''.join('<li>'+e(x)+'</li>' for x in report.get('alerts',[]))+'</ul>'
+    health=report.get('source_health',[])
+    health_html=('<ul>'+''.join('<li>'+e(x['provider'])+' / '+e(x['slug'])+': '+e(x['attempts'])+' consultas, '+e(x['failures'])+' falhas, '+e(x['partial'])+' parciais, '+e(x.get('incomplete'))+' anúncios incompletos em '+e(x.get('received'))+' recebidos. Última consulta: '+e(x['last_checked'])+' UTC.</li>' for x in health)+'</ul>') if health else '<p>Sem consultas registradas nos últimos 30 dias.</p>'
     duplicate_review=report.get('possible_duplicates')
     if duplicate_review and 'groups' in duplicate_review:
         groups=duplicate_review['groups']
@@ -200,6 +204,7 @@ def render(report):
         '<th>Detalhes obtidos / tentados</th><th>Duplicados identificados</th><th>Motivo</th><th>Revisão de uso</th></tr></thead><tbody>'+entries+
         '</tbody></table></div><p>Revisão documental: '+e(report['review_status'])+
         '. Nenhuma fonte é ativada por este painel.</p></section>'
+        '<section><h2>Consultas por fonte nos últimos 30 dias</h2>'+health_html+'<p>Resultados armazenados não contam como novas consultas.</p></section>'
         '<section><h2>Operação</h2><p>Sugestões de fontes: '+e(report['suggestions_count'])+
         ' | Backups locais de homologação: '+e(backup['count'])+' | Último: '+e(backup['latest'])+
         '</p><p>Auditoria de links: '+e(links.get('checked_at') if links else None)+

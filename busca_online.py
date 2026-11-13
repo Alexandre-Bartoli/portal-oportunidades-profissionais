@@ -20,8 +20,14 @@ LOG=logging.getLogger(__name__)
 CACHE_SECONDS=24*60*60
 
 
+def course_area(course):
+    courses={'':'','informatica_internet':'Tecnologia'}
+    if course not in courses:raise ValueError('Curso inválido')
+    return courses[course]
+
+
 def _cache_key(filters,tasks):
-    data=json.dumps({'version':1,'filters':filters,'tasks':tasks},sort_keys=True,ensure_ascii=False,separators=(',',':'))
+    data=json.dumps({'version':2,'filters':filters,'tasks':tasks},sort_keys=True,ensure_ascii=False,separators=(',',':'))
     return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
 
@@ -44,9 +50,37 @@ def _write_cache(key,result):
     with core.connect() as db:
         db.execute('CREATE TABLE IF NOT EXISTS search_cache (cache_key TEXT PRIMARY KEY, created_at REAL NOT NULL, result TEXT NOT NULL)')
         now=time.time()
+        timestamps=[datetime.fromisoformat(source['checked_at']).timestamp() for source in result.get('sources',[]) if source.get('checked_at')]
+        origin=min(timestamps,default=now)
         db.execute('DELETE FROM search_cache WHERE created_at < ?', (now-CACHE_SECONDS,))
         db.execute('INSERT OR REPLACE INTO search_cache(cache_key,created_at,result) VALUES(?,?,?)',
-                   (key,now,json.dumps(result,ensure_ascii=False)))
+                   (key,origin,json.dumps(result,ensure_ascii=False)))
+
+
+def _source_key(provider,slug,options):
+    return hashlib.sha256(json.dumps([1,provider,slug,options],sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+
+
+def _source_load(key):
+    from providers_extra import ListingBatch
+    with core.connect() as db:
+        db.execute('CREATE TABLE IF NOT EXISTS source_cache (cache_key TEXT PRIMARY KEY, created_at REAL NOT NULL, result TEXT NOT NULL)')
+        row=db.execute('SELECT created_at,result FROM source_cache WHERE cache_key=?',(key,)).fetchone()
+    if not row or not 0<=time.time()-row[0]<CACHE_SECONDS:return None
+    data=json.loads(row[1]);rows=ListingBatch(data['jobs'],complete=data['complete'],raw_count=data['raw_count'])
+    rows.pages_fetched=data.get('pages_fetched');rows.page_limit=data.get('page_limit')
+    return rows,datetime.fromtimestamp(row[0],timezone.utc).isoformat()
+
+
+def _source_save(key,rows):
+    payload=json.dumps({'jobs':list(rows),'complete':getattr(rows,'complete',True),'raw_count':getattr(rows,'raw_count',None),
+                        'pages_fetched':getattr(rows,'pages_fetched',None),'page_limit':getattr(rows,'page_limit',None)},ensure_ascii=False)
+    if len(payload)>10_000_000:return False
+    with core.connect() as db:
+        db.execute('CREATE TABLE IF NOT EXISTS source_cache (cache_key TEXT PRIMARY KEY, created_at REAL NOT NULL, result TEXT NOT NULL)')
+        now=time.time();db.execute('DELETE FROM source_cache WHERE created_at < ?', (now-CACHE_SECONDS,))
+        db.execute('INSERT OR REPLACE INTO source_cache VALUES (?,?,?)',(key,now,payload))
+    return True
 
 
 def _plan(filters):
@@ -203,15 +237,31 @@ class SearchManager:
                 if self.jobs[ident]['status']!='running':return
                 self.jobs[ident].update(current=provider+'/'+slug,detail_done=0,detail_total=0)
             result={'provider':provider,'slug':slug,'status':'failed','matched':None}
+            network_attempted=False
             try:
                 def progress(done,total):
                     with self.lock:self.jobs[ident].update(detail_done=done,detail_total=total)
                 extra={'progress_callback':progress} if provider in ('gupy','voluntarios') else {}
-                rows=core.fetch_source(provider,slug,**options,**extra)
+                source_key=_source_key(provider,slug,options)
+                try:stored=_source_load(source_key)
+                except (sqlite3.Error,OSError,ValueError,KeyError,TypeError):stored=None
+                if stored:
+                    rows,checked_at=stored
+                    result['cached']=True
+                else:
+                    network_attempted=True
+                    rows=core.fetch_source(provider,slug,**options,**extra)
+                    checked_at=datetime.now(timezone.utc).isoformat()
                 with self.lock:
                     self._expire(ident)
                     if self.jobs[ident]['status']!='running':return
                 detail_failed=max(0,getattr(rows,'details_attempted',0)-getattr(rows,'details_succeeded',0))
+                result['received']=len(rows)
+                result['incomplete']=sum(1 for job in rows if not job.get('title') or not job.get('description') or job.get('mode') in (None,'','unknown') or (job.get('mode')!='remote' and not job.get('location')))
+                source_saved=bool(stored)
+                if not stored and not detail_failed:
+                    try:source_saved=_source_save(source_key,rows)
+                    except (sqlite3.Error,OSError,ValueError,TypeError):LOG.warning('Não foi possível armazenar fonte')
                 with self.lock:self.jobs[ident]['details_failed']+=detail_failed
                 classified=[(job,_classify(job,filters)) for job in rows]
                 accepted=[(job,missing) for job,missing in classified if missing is not None]
@@ -228,11 +278,16 @@ class SearchManager:
                         if job_id and missing and job_id not in self.jobs[ident]['ids']:self.jobs[ident]['pending'][job_id]=missing
                     for job_id in self.jobs[ident]['ids']:self.jobs[ident]['pending'].pop(job_id,None)
                     self.jobs[ident]['saved']=len(self.jobs[ident]['ids'])
-                result.update(status='partial' if not getattr(rows,'complete',True) or detail_failed else 'ok',matched=len(ids),pages=getattr(rows,'pages_fetched',None),page_limit=getattr(rows,'page_limit',None))
+                result.update(status='partial' if not getattr(rows,'complete',True) or detail_failed else 'ok',matched=len(ids),pages=getattr(rows,'pages_fetched',None),page_limit=getattr(rows,'page_limit',None),checked_at=checked_at,cacheable=source_saved)
             except Exception as exc:
                 LOG.warning('Falha na consulta %s/%s: %s',provider,slug,type(exc).__name__)
                 with self.lock:self.jobs[ident]['failed']+=1
             finally:
+                if network_attempted:
+                    try:
+                        from admin_history import record_source
+                        record_source(provider,slug,result['status'],result.get('received'),result.get('incomplete'))
+                    except (sqlite3.Error,OSError,ValueError):LOG.warning('Não foi possível registrar consulta da fonte')
                 with self.lock:
                     self.jobs[ident]['sources'].append(result)
                     self.jobs[ident]['done']+=1

@@ -56,8 +56,14 @@ class BuscaOnlineTests(unittest.TestCase):
             self.assertTrue(second['cached'])
             from interface_publica import render_progress
             self.assertIn('Resultados armazenados',render_progress(second,ident))
-            with core.connect() as db:db.execute('UPDATE search_cache SET created_at=created_at-86401')
+            with core.connect() as db:
+                db.execute('UPDATE search_cache SET created_at=created_at-86401')
+                db.execute('UPDATE source_cache SET created_at=created_at-86401')
             ident=self.manager.start(self.filters());self.manager.wait(ident,3)
+            self.assertEqual(fetch.call_count,2)
+        with patch('core.fetch_source',return_value=ListingBatch([],complete=False)) as fetch:
+            for word in ('analista','professor'):
+                ident=self.manager.start(self.filters(q=word));self.manager.wait(ident,3)
             self.assertEqual(fetch.call_count,2)
 
     def test_different_filters_and_failures_do_not_use_cache(self):
@@ -65,10 +71,26 @@ class BuscaOnlineTests(unittest.TestCase):
             for _ in range(2):
                 ident=self.manager.start(self.filters());self.manager.wait(ident,3)
             self.assertEqual(fetch.call_count,2)
-        with patch('core.fetch_source',return_value=ListingBatch([],complete=False)) as fetch:
-            for word in ('analista','professor'):
-                ident=self.manager.start(self.filters(q=word));self.manager.wait(ident,3)
-            self.assertEqual(fetch.call_count,2)
+
+    def test_provider_results_are_reused_when_local_filter_changes(self):
+        config={'sources':[{'provider':'voluntarios','slug':'publico','enabled':True,'experimental_access':True,'region':'BR'}]}
+        (self.root/'sources.json').write_text(json.dumps(config))
+        def job(ident,title):
+            return core.make_job('voluntarios','publico',{'id':ident,'title':title,'kind':'volunteer','url':'https://voluntarios.com.br/vaga/'+ident,'mode':'remote','description':'Comunicação' if ident=='1' else 'software'})
+        jobs=ListingBatch([job('1','Comunicação'),job('2','Tecnologia')],complete=False)
+        with patch('core.fetch_source',return_value=jobs) as fetch:
+            for word,expected in [('Comunicação','Comunicação'),('Tecnologia','Tecnologia')]:
+                ident=self.manager.start(self.filters(kind='volunteer',region='',uf='',q=word))
+                self.manager.wait(ident,3)
+                state=self.manager.status(ident)
+                found=core.query(kind='volunteer',only_ids=state['ids'])
+                self.assertEqual([x['title'] for x in found],[expected])
+            self.assertEqual(fetch.call_count,1)
+            self.assertTrue(state['sources'][0]['cached'])
+            from admin_history import source_health
+            health=source_health()
+            self.assertEqual(health[0]['attempts'],1)
+            self.assertEqual(health[0]['partial'],1)
 
     def test_progress_updates_while_a_source_details_jobs(self):
         started=threading.Event();release=threading.Event()
@@ -158,6 +180,23 @@ class BuscaOnlineTests(unittest.TestCase):
         result=_classify(job,self.filters(kind='volunteer',mode='remote'))
         self.assertIn('Localização insuficiente para confirmar a região',result)
         self.assertIn('País não confirmado',result)
+
+    def test_course_suggestion_uses_known_area_without_personal_data(self):
+        from busca_online import course_area
+        self.assertEqual(course_area('informatica_internet'),'Tecnologia')
+        self.assertEqual(course_area(''),'')
+        with self.assertRaises(ValueError):course_area('curso_inexistente')
+
+    def test_search_cache_does_not_extend_age_of_reused_source(self):
+        from busca_online import _read_cache, _write_cache
+        from datetime import datetime, timezone
+        old=datetime.fromtimestamp(100_000,timezone.utc).isoformat()
+        result={'ids':[],'pending':{},'sources':[{'checked_at':old}],'saved':0}
+        with patch('busca_online.time.time',return_value=100_000+86_399):
+            _write_cache('test',result)
+            self.assertIsNotNone(_read_cache('test'))
+        with patch('busca_online.time.time',return_value=100_000+86_400):
+            self.assertIsNone(_read_cache('test'))
 
     def test_search_resolves_existing_duplicate_to_persisted_identity(self):
         raw={'id':'77','title':'Analista','kind':'employment','country':'BR',

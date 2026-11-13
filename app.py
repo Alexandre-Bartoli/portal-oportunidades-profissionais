@@ -108,7 +108,7 @@ class Handler(BaseHTTPRequestHandler):
   q=p.get('q',[''])[0][:100];country=p.get('country',[''])[0][:3]
   kind=p.get('kind',['internship'])[0]
   if kind not in ('internship','employment','temporary','volunteer','all'):kind='internship'
-  region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0]
+  region=p.get('region',[''])[0];mode=p.get('mode',[''])[0];area=p.get('area',[''])[0];course=p.get('course',[''])[0]
   uf=p.get('uf',[''])[0];municipality=p.get('municipality',[''])[0];radius=p.get('radius_km',[''])[0];published_days=p.get('published_days',[''])[0]
   search_id=p.get('search_id',[''])[0]
   search=None
@@ -116,6 +116,8 @@ class Handler(BaseHTTPRequestHandler):
   if loading_cities:municipality=''
   error_message=''
   try:
+   from busca_online import course_area
+   if course:area=course_area(course)
    offset=int(p.get('offset',[0])[0])
    only_ids=None
    if search_id:
@@ -132,7 +134,7 @@ class Handler(BaseHTTPRequestHandler):
   from interface_publica import render_search
   states=[(x,x) for x in sorted({r[2] for r in municipalities()})]
   cities=[(r[0],r[1]) for r in municipalities(uf)] if uf else []
-  filters={'q':q,'country':country,'kind':kind,'region':region,'mode':mode,'area':area,
+  filters={'q':q,'country':country,'kind':kind,'region':region,'mode':mode,'area':area,'course':course,
            'uf':uf,'municipality':municipality,'radius_km':radius,'published_days':published_days}
   navigation=[]
   for target,label in ((max(0,offset-30),'Página anterior'),(offset+30,'Próxima página')):
@@ -167,7 +169,9 @@ class Handler(BaseHTTPRequestHandler):
    filters={'q':get('q',100),'kind':get('kind') or 'all','country':get('country',3),
             'region':get('region'),'mode':get('mode'),'area':get('area'),
             'uf':get('uf'),'municipality':get('municipality'),'radius_km':get('radius_km'),
-            'published_days':get('published_days')}
+            'published_days':get('published_days'),'course':get('course')}
+   from busca_online import course_area
+   if filters['course']:filters['area']=course_area(filters['course'])
    kind=filters['kind']
    if kind not in ('all','internship','employment','temporary','volunteer'):raise ValueError('Categoria inválida')
    query(q=filters['q'],country=filters['country'],kind='' if kind=='all' else kind,limit=1,
