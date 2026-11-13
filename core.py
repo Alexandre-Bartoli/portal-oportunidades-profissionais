@@ -21,7 +21,7 @@ NEGATIVE = re.compile(r'\b(senior|sr\.|manager|gerente|director|diretor|trainee|
 AREAS = {
  'Tecnologia': ['software','developer','desenvolvimento','programacao','data science','dados','cybersecurity','seguranca da informacao'],
  'Administração': ['administration','administracao','business operations','administrativo','finance','financas','accounting','contabilidade'],
- 'Saúde': ['nursing','enfermagem','psychology','psicologia','nutrition','nutricao','pharmacy','farmacia','healthcare'],
+ 'Saúde': ['nursing','enfermagem','psychology','psicologia','psicologo','psicologa','nutrition','nutricao','pharmacy','farmacia','healthcare'],
  'Educação': ['education','educacao','teaching','professor','pedagogia','teacher'],
  'Agropecuária': ['agriculture','agronomy','agronomia','agricultura','veterinary','veterinaria','animal science'],
  'Engenharias': ['engineering','engenharia','mechanical','civil engineering','electrical'],
