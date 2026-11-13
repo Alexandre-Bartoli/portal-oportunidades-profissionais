@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy', 'solides', 'remotive', 'workable', 'inhire'})
+PROVIDERS = frozenset({'greenhouse', 'lever', 'ashby', 'gupy', 'smartrecruiters', 'breezy', 'solides', 'remotive', 'workable', 'inhire', 'voluntarios'})
 CATEGORY = frozenset({'internship', 'employment', 'temporary', 'volunteer'})
 
 
@@ -27,7 +27,7 @@ def validate_sources(config):
             raise ValueError(f'Fonte {index}: identificador inseguro')
         if type(item.get('enabled')) is not bool:
             raise ValueError(f'Fonte {index}: enabled deve ser booleano')
-        if 'experimental_access' in item and (provider not in {'gupy', 'inhire'} or type(item['experimental_access']) is not bool):
+        if 'experimental_access' in item and (provider not in {'gupy', 'inhire', 'voluntarios'} or type(item['experimental_access']) is not bool):
             raise ValueError(f'Fonte {index}: acesso experimental inválido')
         key = (provider, slug.casefold())
         if key in seen:
@@ -37,6 +37,7 @@ def validate_sources(config):
             raise ValueError('Identificador do provedor inválido')
         if provider == 'inhire' and not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,78}[A-Za-z0-9])?',slug):
             raise ValueError('Identificador InHire inválido')
+        if provider == 'voluntarios' and slug != 'publico':raise ValueError('Identificador Voluntários inválido')
         if provider == 'gupy':
             from gupy import source_parameters
             source_parameters(slug)

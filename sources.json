@@ -132,6 +132,14 @@
       "experimental_access": true,
       "region": "BR",
       "note": "Consulta estadual experimental em Minas Gerais; revisão de uso pendente"
+    },
+    {
+      "provider": "voluntarios",
+      "slug": "publico",
+      "enabled": true,
+      "experimental_access": true,
+      "region": "BR",
+      "note": "Listagem pública experimental; condições de redistribuição pendentes de revisão"
     }
   ]
 }

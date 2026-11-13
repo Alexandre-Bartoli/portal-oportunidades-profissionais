@@ -82,7 +82,7 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     alert='<div class="notice" role="alert">'+esc(error_message)+'</div>' if error_message else ''
     alert+=render_source_results(source_results)
     if filters['kind']=='volunteer':
-        alert+='<section class="notice"><strong>Outros portais de voluntariado</strong><p>Estes portais não são consultados automaticamente. Abra os sites e selecione seus filtros de área, localização e modalidade em cada um.</p><p><a href="https://www.atados.com.br/vagas" target="_blank" rel="noopener noreferrer">Atados ↗</a> · <a href="https://vol.org.br/" target="_blank" rel="noopener noreferrer">VOL ↗</a> · <a href="https://voluntarios.com.br/vaga/busca" target="_blank" rel="noopener noreferrer">Seja um Voluntário ↗</a></p></section>'
+        alert+='<section class="notice"><strong>Portais de voluntariado</strong><p>O Voluntários é consultado experimentalmente. Atados e VOL não são consultados automaticamente; abra os sites para aplicar seus filtros.</p><p><a href="https://www.atados.com.br/vagas" target="_blank" rel="noopener noreferrer">Atados ↗</a> · <a href="https://vol.org.br/" target="_blank" rel="noopener noreferrer">VOL ↗</a> · <a href="https://voluntarios.com.br/vaga/busca" target="_blank" rel="noopener noreferrer">Voluntários ↗</a></p></section>'
     pending_html=''
     if pending_jobs:
         items=''.join('<li><a href="/vaga?id='+quote(str(job['id']),safe='')+'">'+esc(job['title'])+'</a> · '+esc(job.get('company') or 'Empresa não informada')+'<br>'+esc('; '.join(reasons))+'</li>' for job,reasons in pending_jobs)

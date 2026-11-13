@@ -37,4 +37,4 @@ class VoluntariadoTests(unittest.TestCase):
         page=render_search(result,self.filters,list(core.AREAS),[('MG','MG')],[],[],False)
         self.assertIn('Voluntariado',page)
         self.assertIn('vol.org.br',page)
-        self.assertIn('não são consultados automaticamente',page)
+        self.assertIn('Atados e VOL não são consultados automaticamente',page)

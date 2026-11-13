@@ -29,6 +29,7 @@ HOSTS = {
     'remotive': re.compile(r'^remotive\.com$'),
     'workable': re.compile(r'^apply\.workable\.com$'),
     'solides': re.compile(r'^(?:vagas\.solides\.com\.br|(?:[a-z0-9][a-z0-9-]*\.)?rhgestor\.com\.br)$'),
+    'voluntarios': re.compile(r'^voluntarios\.com\.br$'),
 }
 
 

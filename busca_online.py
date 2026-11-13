@@ -57,7 +57,8 @@ def _plan(filters):
                 tasks.append(('gupy',slug,{'detail_limit':5,'query_text':filters.get('q','')[:100],
                                           'city':city,'workplace':workplace}))
         for source in sources:
-            if (source['enabled'] and source.get('region')=='BR' and source['provider'] in ('inhire','ashby','lever','greenhouse')
+            if (source['enabled'] and source.get('region')=='BR' and source['provider'] in ('inhire','ashby','lever','greenhouse','voluntarios')
+                    and (source['provider']!='voluntarios' or kind in ('all','volunteer'))
                     and not pending_technical_review(source)):
                 tasks.append((source['provider'],source['slug'],{}))
     if international:
