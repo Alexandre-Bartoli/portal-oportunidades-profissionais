@@ -3,6 +3,13 @@ from interface_publica import render_search
 
 
 class InterfaceVisualTests(unittest.TestCase):
+    def test_course_options_are_displayed_and_selected(self):
+        filters={'q':'','kind':'all','country':'','region':'','mode':'','area':'','uf':'','municipality':'','radius_km':'','course':'psicologia'}
+        page=render_search([],filters,[],[],[],[],False)
+        for name in ('Sistemas de Informação','Tecnólogo em Sistemas para Internet','Psicologia'):
+            self.assertIn(name,page)
+        self.assertIn('value="psicologia" selected',page)
+
     def test_search_keeps_selected_filters_and_escapes_user_input(self):
         filters={'q':'<script>alert(1)</script>', 'kind':'temporary', 'country':'BR', 'region':'brazil',
                  'mode':'remote', 'area':'', 'uf':'MG', 'municipality':'3105608', 'radius_km':'20'}
