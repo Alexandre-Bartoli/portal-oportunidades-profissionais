@@ -18,16 +18,22 @@ from source_reviews import pending_technical_review
 KINDS={'internship':'estagio','employment':'emprego','temporary':'temporario'}
 LOG=logging.getLogger(__name__)
 CACHE_SECONDS=24*60*60
+COURSES={
+    'informatica_internet':('Técnico em Informática para Internet','Tecnologia'),
+    'sistemas_informacao':('Sistemas de Informação','Tecnologia'),
+    'sistemas_internet':('Tecnólogo em Sistemas para Internet','Tecnologia'),
+    'psicologia':('Psicologia','Saúde'),
+}
 
 
 def course_area(course):
-    courses={'':'','informatica_internet':'Tecnologia'}
-    if course not in courses:raise ValueError('Curso inválido')
-    return courses[course]
+    if not course:return ''
+    if course not in COURSES:raise ValueError('Curso inválido')
+    return COURSES[course][1]
 
 
 def _cache_key(filters,tasks):
-    data=json.dumps({'version':2,'filters':filters,'tasks':tasks},sort_keys=True,ensure_ascii=False,separators=(',',':'))
+    data=json.dumps({'version':3,'filters':filters,'tasks':tasks},sort_keys=True,ensure_ascii=False,separators=(',',':'))
     return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
 
@@ -68,6 +74,8 @@ def _source_load(key):
         row=db.execute('SELECT created_at,result FROM source_cache WHERE cache_key=?',(key,)).fetchone()
     if not row or not 0<=time.time()-row[0]<CACHE_SECONDS:return None
     data=json.loads(row[1]);rows=ListingBatch(data['jobs'],complete=data['complete'],raw_count=data['raw_count'])
+    for job in rows:
+        job['areas']=sorted(set(job.get('areas',[])) | set(core.areas_for(job.get('title',''),job.get('description',''))))
     rows.pages_fetched=data.get('pages_fetched');rows.page_limit=data.get('page_limit')
     return rows,datetime.fromtimestamp(row[0],timezone.utc).isoformat()
 
@@ -182,7 +190,8 @@ def _classify(job, filters):
         if radius and distance_km(city,code)>float(radius):return None
         if not radius and city and code!=city:return None
         if not city and cities[code][2]!=uf:return None
-    if not remote_without_geo and (not job.get('location') or (uf and code not in cities)):missing.append('Localização insuficiente para confirmar a região')
+    location_needed=bool(uf or filters.get('municipality') or filters.get('radius_km')) or not (wanted or region)
+    if location_needed and not remote_without_geo and (not job.get('location') or (uf and code not in cities)):missing.append('Localização insuficiente para confirmar a região')
     return missing
 
 

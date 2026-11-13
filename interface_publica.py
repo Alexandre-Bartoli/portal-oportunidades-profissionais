@@ -48,6 +48,7 @@ def render_detail(item, link, link_label, flags):
 
 
 def render_search(jobs, filters, areas, states, cities, navigation, staging, portals=(), error_message='', source_results=(),pending_jobs=(),pending_total=0,cached_at=None):
+    from busca_online import COURSES
     categories=[('all','Todas'),('internship','Estágio'),('employment','Emprego'),('temporary','Temporária'),('volunteer','Voluntariado')]
     choices=''.join('<label class="choice"><input type="radio" name="kind" value="'+value+'"'+(' checked' if filters['kind']==value else '')+'><span>'+label+'</span></label>' for value,label in categories)
     panel='<aside class="filter-panel"><div class="panel-top"><h2>Refine sua busca</h2><p>Escolha o que faz sentido para você.</p></div><form class="filter-body" method="get" action="/">'
@@ -57,7 +58,7 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     panel+=options('region','Região',filters['region'],[('','Todas as regiões'),('brazil','Brasil'),('international','Exterior')])
     panel+=options('country','País',filters['country'],[('','Todos os países'),('BR','Brasil'),('CA','Canadá'),('US','Estados Unidos'),('GB','Reino Unido'),('DE','Alemanha'),('SA','Arábia Saudita'),('AU','Austrália'),('KR','Coreia do Sul'),('AE','Emirados Árabes Unidos'),('ES','Espanha'),('FR','França'),('NL','Holanda'),('IE','Irlanda'),('IT','Itália'),('JP','Japão'),('PT','Portugal'),('SG','Singapura'),('SE','Suécia')])
     panel+=options('mode','Modalidade',filters['mode'],[('','Todas as modalidades'),('remote','Remota'),('hybrid','Híbrida'),('onsite','Presencial'),('unknown','Não informada')])
-    panel+=options('course','Curso',filters.get('course',''),[('','Todos os cursos'),('informatica_internet','Técnico em Informática para Internet')], 'Ao escolher este curso, a pesquisa usa a área Tecnologia. Confira a relação de cada vaga com sua formação.')
+    panel+=options('course','Curso',filters.get('course',''),[('','Todos os cursos')]+[(key,value[0]) for key,value in COURSES.items()], 'Ao escolher um curso, a pesquisa usa sua área sugerida. Confira a relação de cada vaga com sua formação.')
     panel+=options('area','Área sugerida',filters['area'],[('','Todas as áreas')]+[(x,x) for x in areas])
     panel+=options('published_days','Data de publicação',filters.get('published_days',''),[('','Qualquer data'),('7','Últimos 7 dias'),('14','Últimos 14 dias'),('30','Últimos 30 dias'),('90','Últimos 90 dias')], 'Sem data informada, a vaga continua aparecendo.')
     panel+=options('uf','Estado',filters['uf'],[('','Todos os estados')]+states)
