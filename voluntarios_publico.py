@@ -41,6 +41,52 @@ class TableParser(HTMLParser):
             self.tables.append(self.table);self.table=None
 
 
+class DetailParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.depth=0;self.records=0;self.title=[];self.in_title=False;self.parts=[];self.ignore=0
+
+    def handle_starttag(self,tag,attrs):
+        attrs=dict(attrs)
+        if tag=='h1' and not self.depth:self.in_title=True
+        if tag=='div' and 'registro' in attrs.get('class','').split() and not self.depth:
+            self.records+=1;self.depth=1;return
+        if not self.depth:return
+        if tag in ('script','style'):self.ignore+=1
+        if tag=='div':self.depth+=1
+        if tag in ('p','h3','br','li'):self.parts.append('\n')
+
+    def handle_data(self,data):
+        if self.in_title:self.title.append(data)
+        if self.depth and not self.ignore:self.parts.append(data)
+
+    def handle_endtag(self,tag):
+        if tag=='h1':self.in_title=False
+        if not self.depth:return
+        if tag in ('script','style') and self.ignore:self.ignore-=1
+        if tag in ('p','h3','li'):self.parts.append('\n')
+        if tag=='div':self.depth-=1
+
+
+def enrich_detail(job,page):
+    import core
+    if not isinstance(page,str) or len(page)>2_000_000:raise ValueError('Detalhes inválidos')
+    parser=DetailParser();parser.feed(page)
+    title=' '.join(''.join(parser.title).split())
+    if parser.records!=1 or parser.depth or core.normalize_text(title)!=core.normalize_text(job['title']):
+        raise ValueError('Detalhes não correspondem à vaga')
+    lines=[' '.join(line.split()) for line in ''.join(parser.parts).splitlines()]
+    lines=[line for line in lines if line]
+    if not any(core.normalize_text(line)=='atividades' for line in lines):raise ValueError('Detalhes incompletos')
+    entity=next((line.split(':',1)[1].strip() for line in lines if line.lower().startswith('entidade:')),None)
+    result=dict(job)
+    result['description']=(job['description']+'\n\n'+'\n'.join(lines))[:12000]
+    result['company']=entity[:200] if entity else None
+    result['areas']=sorted(set(job['areas'])|set(core.areas_for(job['title'],result['description'])))
+    result['detail_enriched']=True
+    return result
+
+
 def parse_list(page, *, today=None):
     import core
     if not isinstance(page,str) or len(page)>2_000_000:raise ValueError('Página de voluntariado inválida')
@@ -84,11 +130,26 @@ def parse_list(page, *, today=None):
     return result
 
 
-def fetch():
+def fetch(progress_callback=None):
     from core import NoRedirectHandler
     request=urllib.request.Request(URL,headers={'User-Agent':'PortalOportunidades/0.9','Accept':'text/html'})
     with urllib.request.build_opener(NoRedirectHandler()).open(request,timeout=15) as response:
         if response.headers.get_content_type()!='text/html':raise ValueError('Formato de resposta inesperado')
         data=response.read(2_000_001)
         if len(data)>2_000_000:raise ValueError('Página excede o limite')
-        return parse_list(data.decode('utf-8'))
+        jobs=parse_list(data.decode('utf-8'))
+    selected=jobs[:15]
+    jobs.details_attempted=len(selected);jobs.details_succeeded=0
+    if progress_callback:progress_callback(0,len(selected))
+    for index,job in enumerate(selected):
+        try:
+            request=urllib.request.Request(job['url'],headers={'User-Agent':'PortalOportunidades/0.9','Accept':'text/html'})
+            with urllib.request.build_opener(NoRedirectHandler()).open(request,timeout=4) as response:
+                if response.headers.get_content_type()!='text/html':raise ValueError('Formato inesperado')
+                data=response.read(2_000_001)
+                if len(data)>2_000_000:raise ValueError('Página excede o limite')
+            jobs[index]=enrich_detail(job,data.decode('utf-8'))
+            jobs.details_succeeded+=1
+        except (ValueError,UnicodeError,urllib.error.URLError,TimeoutError,OSError):pass
+        if progress_callback:progress_callback(index+1,len(selected))
+    return jobs
