@@ -103,7 +103,7 @@ class Handler(BaseHTTPRequestHandler):
    link=item.get('url') if allowed_link(item.get('provider'),item.get('url')) else None
    link_label='Consultar anúncio na Remotive' if item['provider']=='remotive' else 'Consultar anúncio na fonte'
    flags=analyze(item['title'],item['description'],item['mode'])
-   return self.response(render_detail(item,link,link_label,flags),'text/html')
+   return self.response(render_detail(item,link,link_label,flags,course=p.get('course',[''])[0]),'text/html')
   if u.path!='/':return self.response('Não encontrado','text/plain',404)
   q=p.get('q',[''])[0][:100];country=p.get('country',[''])[0][:3]
   kind=p.get('kind',['internship'])[0]

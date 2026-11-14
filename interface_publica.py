@@ -1,6 +1,7 @@
 """Interface pública de consulta, sem dependências externas ou JavaScript."""
 import html
-from urllib.parse import quote
+import re
+from urllib.parse import quote, urlencode
 
 
 def esc(value):
@@ -32,7 +33,33 @@ def footer():
     return '<footer class="footer"><div class="wrap footer-inner"><span>Portal de Oportunidades · Consulta local</span><span>Confira os detalhes no anúncio original.</span></div></footer></body></html>'
 
 
-def render_detail(item, link, link_label, flags):
+COURSE_TERMS={
+    'informatica_internet':('programação web','desenvolvimento web','banco de dados','html','css','javascript','suporte técnico'),
+    'sistemas_informacao':('sistemas de informação','banco de dados','desenvolvimento de sistemas','análise de sistemas','programação','governança de ti'),
+    'sistemas_internet':('sistemas para internet','desenvolvimento web','programação web','banco de dados','html','css','javascript'),
+    'psicologia':('psicologia','psicólogo','psicóloga','saúde mental','avaliação psicológica','acolhimento psicológico'),
+}
+
+
+def course_evidence(item, course):
+    from core import normalize_text
+    terms=COURSE_TERMS.get(course)
+    if not terms:return []
+    text=normalize_text(str(item.get('title') or '')+'\n'+str(item.get('description') or ''))
+    return [term for term in terms if re.search(r'(?<!\w)'+re.escape(normalize_text(term))+r'(?!\w)',text)][:5]
+
+
+def complementary_search(filters):
+    terms={'informatica_internet':'informática internet','sistemas_informacao':'sistemas de informação',
+           'sistemas_internet':'desenvolvimento web','psicologia':'psicologia'}
+    kinds={'internship':'estágio','employment':'emprego','temporary':'trabalho temporário','volunteer':'voluntariado'}
+    search=' '.join(x for x in (str(filters.get('q') or '')[:100].strip(),terms.get(filters.get('course'),''),kinds.get(filters.get('kind'),'')) if x) or 'vagas'
+    sites=(('Gupy','gupy.io'),('Greenhouse','boards.greenhouse.io'),('Lever','jobs.lever.co'))
+    links=''.join('<li><a target="_blank" rel="noopener noreferrer" href="'+esc('https://www.google.com/search?'+urlencode({'q':'site:'+domain+' '+search}))+'">Pesquisar '+esc(name)+' no Google ↗</a></li>' for name,domain in sites)
+    return '<section class="portal-list"><h3>Pesquisa complementar no Google</h3><p>A pesquisa usa o curso, a categoria e as palavras digitadas. Região, país, modalidade e outros filtros devem ser conferidos nos resultados. Os resultados podem estar desatualizados ou incompletos. Ao abrir um link, esses termos serão enviados ao Google.</p><ul>'+links+'</ul></section>'
+
+
+def render_detail(item, link, link_label, flags, course=''):
     labels={'selecao_interna':'Possível seleção interna','pagamento_suspeito':'Possível cobrança relacionada à inscrição',
             'modalidade_hibrida':'Descrição menciona trabalho híbrido','presencial':'Descrição menciona trabalho presencial',
             'modalidade_inconsistente':'Modalidade pode divergir da descrição'}
@@ -43,6 +70,11 @@ def render_detail(item, link, link_label, flags):
     facts=''.join('<div aria-label="'+esc(label)+': '+value(data)+'"><span>'+esc(label)+'</span><strong>'+value(data)+'</strong></div>' for label,data in details)
     notice='EXEMPLO FICTÍCIO' if item.get('demo') else 'Dados coletados automaticamente, sujeitos a revisão.'
     warning=('<section class="detail-warning"><h2>Sinais para conferir</h2><p>São indícios automáticos, não conclusões. Confira no anúncio original.</p><ul>'+''.join('<li>'+esc(labels.get(f['type'],f['type']))+': '+esc(f['evidence'])+'</li>' for f in flags)+'</ul></section>') if flags else ''
+    from busca_online import COURSES
+    if course in COURSES:
+        evidence=course_evidence(item,course)
+        explanation=('Termos identificados no título ou na descrição: '+', '.join(esc(x) for x in evidence)+'.' if evidence else 'Não foram identificados termos relacionados ao curso no título ou na descrição disponível.')
+        warning+='<section class="detail-warning"><h2>Relação com '+esc(COURSES[course][0])+'</h2><p>'+explanation+'</p><p>Esta é uma indicação por palavras. Confira os requisitos no anúncio para verificar se seu curso é aceito.</p></section>'
     action='<a class="detail-action" rel="noopener noreferrer" href="'+esc(link)+'">'+esc(link_label)+' ↗</a>' if link else '<p>Link não confirmado. Consulte o site oficial da fonte para verificar a oportunidade.</p>'
     return shell_start(item['title'])+'<main class="wrap detail-wrap"><a class="back-link" href="/">← Voltar à pesquisa</a><article class="detail-box"><span class="section-kicker">Detalhes da oportunidade</span><h1>'+value(item['title'])+'</h1><p class="detail-notice">'+notice+'</p><div class="detail-info">'+facts+'</div><h2>Sobre a vaga</h2><div class="detail-description">'+value(item.get('description'))+'</div>'+warning+action+'<p class="detail-notice">Última verificação na coleta: '+value(item.get('last_seen'))+'</p></article></main>'+footer()
 
@@ -70,12 +102,13 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
     cards=[]
     for job in jobs:
         ident=quote(str(job['id']),safe='');title=esc(job['title']);company=job.get('company') or 'Empresa não informada'
+        detail_url='/vaga?id='+ident+('&amp;course='+quote(filters['course'],safe='') if filters.get('course') in COURSES else '')
         kind={'internship':'Estágio','employment':'Emprego','temporary':'Temporária','volunteer':'Voluntariado'}.get(job['kind'],'Em revisão')
         mode={'remote':'Remoto','hybrid':'Híbrido','onsite':'Presencial'}.get(job.get('mode'),'Modalidade não informada')
         location=job.get('location') or 'Local não informado'; area=', '.join(job.get('areas') or [])
         distance=('<span>Distância aproximada: '+esc(job['distance_km'])+' km</span>') if 'distance_km' in job else ''
         demo='<span class="pill demo">EXEMPLO FICTÍCIO</span>' if job.get('demo') else ''
-        cards.append('<article class="job-card"><div class="card-top"><div class="company"><span class="company-mark" aria-hidden="true">'+esc(str(company)[:1].upper())+'</span><span>'+esc(company)+'</span></div><span class="pill soft">'+esc(job['provider'])+'</span></div><h3 class="job-title"><a href="/vaga?id='+ident+'">'+title+'</a></h3><div class="meta"><span>'+esc(location)+'</span><span>'+esc(mode)+'</span>'+distance+'</div><div class="card-bottom"><div class="pills"><span class="pill">'+esc(kind)+'</span>'+(('<span class="pill soft">'+esc(area)+'</span>') if area else '')+demo+'</div><a class="detail-link" href="/vaga?id='+ident+'">Ver oportunidade →</a></div></article>')
+        cards.append('<article class="job-card"><div class="card-top"><div class="company"><span class="company-mark" aria-hidden="true">'+esc(str(company)[:1].upper())+'</span><span>'+esc(company)+'</span></div><span class="pill soft">'+esc(job['provider'])+'</span></div><h3 class="job-title"><a href="'+detail_url+'">'+title+'</a></h3><div class="meta"><span>'+esc(location)+'</span><span>'+esc(mode)+'</span>'+distance+'</div><div class="card-bottom"><div class="pills"><span class="pill">'+esc(kind)+'</span>'+(('<span class="pill soft">'+esc(area)+'</span>') if area else '')+demo+'</div><a class="detail-link" href="'+detail_url+'">Ver oportunidade →</a></div></article>')
     cards_html='' if error_message else (''.join(cards) or '<div class="empty"><div class="empty-symbol" aria-hidden="true">⌕</div><h3>Nenhuma vaga encontrada</h3><p>Tente ampliar a busca ou limpar alguns filtros.</p></div>')
     nav='<nav class="pagination" aria-label="Páginas">'+''.join('<a href="'+esc(url)+'">'+esc(label)+'</a>' for url,label in navigation)+'</nav>' if navigation else ''
     portal_links=''.join('<li><a href="'+esc(p['url'])+'" target="_blank" rel="noopener noreferrer">'+esc(p['name'])+' ↗</a></li>' for p in portals)
@@ -88,9 +121,9 @@ def render_search(jobs, filters, areas, states, cities, navigation, staging, por
         alert+='<section class="notice"><strong>Portais de voluntariado</strong><p>O Voluntários é consultado experimentalmente. Atados e VOL não são consultados automaticamente; abra os sites para aplicar seus filtros.</p><p><a href="https://www.atados.com.br/vagas" target="_blank" rel="noopener noreferrer">Atados ↗</a> · <a href="https://vol.org.br/" target="_blank" rel="noopener noreferrer">VOL ↗</a> · <a href="https://voluntarios.com.br/vaga/busca" target="_blank" rel="noopener noreferrer">Voluntários ↗</a></p></section>'
     pending_html=''
     if pending_jobs:
-        items=''.join('<li><a href="/vaga?id='+quote(str(job['id']),safe='')+'">'+esc(job['title'])+'</a> · '+esc(job.get('company') or 'Empresa não informada')+'<br>'+esc('; '.join(reasons))+'</li>' for job,reasons in pending_jobs)
+        items=''.join('<li><a href="/vaga?id='+quote(str(job['id']),safe='')+('&amp;course='+quote(filters['course'],safe='') if filters.get('course') in COURSES else '')+'">'+esc(job['title'])+'</a> · '+esc(job.get('company') or 'Empresa não informada')+'<br>'+esc('; '.join(reasons))+'</li>' for job,reasons in pending_jobs)
         pending_html='<section class="notice"><h3>Vagas com informações a confirmar</h3><p>Não foi possível confirmar todos os dados para a pesquisa. Confira o anúncio original. Exibindo '+str(len(pending_jobs))+' de '+str(pending_total)+'.</p><ul>'+items+'</ul></section>'
-    body=shell_start('Portal de Oportunidades')+'<section class="hero"><div class="wrap hero-inner"><div class="eyebrow">Um lugar para descobrir possibilidades</div><h1>Encontre oportunidades<br>para o seu próximo passo.</h1><p>Pesquise vagas de estágio, emprego e trabalho temporário em um só lugar.</p><div class="hero-note">Consulte os detalhes e candidate-se na fonte original.</div></div></section><main class="wrap content">'+panel+'<section aria-labelledby="results-title">'+alert+'<div class="notice">'+notice+'</div><div class="results-head"><div><span class="section-kicker">Explore as vagas</span><h2 id="results-title">Oportunidades para você</h2><p>Resultados de acordo com os filtros selecionados.</p></div><span class="count">'+str(len(jobs))+' nesta página</span></div><div class="job-list">'+cards_html+'</div>'+nav+'<div class="notice" style="margin-top:24px">No filtro por município e raio, a distância em linha reta é aproximada entre sedes municipais. Vagas remotas e vagas sem localização suficiente não aparecem nessa pesquisa.</div>'+directory+'</section></main>'+footer()
+    body=shell_start('Portal de Oportunidades')+'<section class="hero"><div class="wrap hero-inner"><div class="eyebrow">Um lugar para descobrir possibilidades</div><h1>Encontre oportunidades<br>para o seu próximo passo.</h1><p>Pesquise vagas de estágio, emprego e trabalho temporário em um só lugar.</p><div class="hero-note">Consulte os detalhes e candidate-se na fonte original.</div></div></section><main class="wrap content">'+panel+'<section aria-labelledby="results-title">'+alert+'<div class="notice">'+notice+'</div><div class="results-head"><div><span class="section-kicker">Explore as vagas</span><h2 id="results-title">Oportunidades para você</h2><p>Resultados de acordo com os filtros selecionados.</p></div><span class="count">'+str(len(jobs))+' nesta página</span></div><div class="job-list">'+cards_html+'</div>'+nav+'<div class="notice" style="margin-top:24px">No filtro por município e raio, a distância em linha reta é aproximada entre sedes municipais. Vagas remotas e vagas sem localização suficiente não aparecem nessa pesquisa.</div>'+complementary_search(filters)+directory+'</section></main>'+footer()
     body=body.replace('Pesquise vagas de estágio, emprego e trabalho temporário em um só lugar.', 'Pesquise oportunidades de estágio, emprego, trabalho temporário e voluntariado.')
     body=body.replace('Vagas remotas e vagas sem localização suficiente não aparecem nessa pesquisa.', 'Vagas sem localização suficiente podem aparecer separadamente para confirmação.')
     return body.replace('<div class="job-list">'+cards_html+'</div>', '<div class="job-list">'+cards_html+'</div>'+pending_html)
